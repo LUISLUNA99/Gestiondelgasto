@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, type Gasto } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -346,6 +346,7 @@ function GastosPage({ user }: { user: any }) {
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [centrosCosto, setCentrosCosto] = useState<any[]>([])
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
     solicitante: '',
     centro_costo: '',
@@ -382,8 +383,12 @@ function GastosPage({ user }: { user: any }) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const gastosData = await gastosService.getGastos()
+      const [gastosData, centrosCostoData] = await Promise.all([
+        gastosService.getGastos(),
+        centrosCostoService.getCentrosCosto()
+      ])
       setGastos(gastosData)
+      setCentrosCosto(centrosCostoData)
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
@@ -717,14 +722,11 @@ function GastosPage({ user }: { user: any }) {
                           }}
                         >
                           <option value="">Seleccionar centro de costo</option>
-                          <option value="CC001">CC001 - Administración</option>
-                          <option value="CC002">CC002 - Ventas</option>
-                          <option value="CC003">CC003 - Marketing</option>
-                          <option value="CC004">CC004 - IT</option>
-                          <option value="CC005">CC005 - Recursos Humanos</option>
-                          <option value="CC006">CC006 - Finanzas</option>
-                          <option value="CC007">CC007 - Operaciones</option>
-                          <option value="CC008">CC008 - Logística</option>
+                          {centrosCosto.map((centro) => (
+                            <option key={centro.codigo} value={centro.codigo}>
+                              {centro.codigo} - {centro.nombre_actual}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>

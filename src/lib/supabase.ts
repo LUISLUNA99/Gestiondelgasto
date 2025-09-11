@@ -5,6 +5,26 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Servicios de centros de costo
+export const centrosCostoService = {
+  // Obtener todos los centros de costo activos
+  async getCentrosCosto() {
+    try {
+      const { data, error } = await supabase
+        .from('centros_costo')
+        .select('codigo, nombre_actual, cliente, tipo_proyecto')
+        .eq('activo', true)
+        .order('codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener centros de costo:', error)
+      return []
+    }
+  }
+}
+
 // Servicios de autenticación
 export const authService = {
   // Iniciar sesión con email y contraseña
