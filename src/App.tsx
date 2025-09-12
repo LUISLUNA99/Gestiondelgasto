@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, centrosCostoService, clasificacionesService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, type Gasto } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -349,6 +349,7 @@ function GastosPage({ user }: { user: any }) {
   const [centrosCosto, setCentrosCosto] = useState<any[]>([])
   const [clasificacionesIniciales, setClasificacionesIniciales] = useState<any[]>([])
   const [clasificacionesFinanzas, setClasificacionesFinanzas] = useState<any[]>([])
+  const [empresasGeneradoras, setEmpresasGeneradoras] = useState<any[]>([])
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
     solicitante: '',
     centro_costo: '',
@@ -385,16 +386,18 @@ function GastosPage({ user }: { user: any }) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData] = await Promise.all([
+      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData] = await Promise.all([
         gastosService.getGastos(),
         centrosCostoService.getCentrosCosto(),
         clasificacionesService.getClasificacionesIniciales(),
-        clasificacionesService.getClasificacionesFinanzas()
+        clasificacionesService.getClasificacionesFinanzas(),
+        empresasGeneradorasService.getEmpresasGeneradoras()
       ])
       setGastos(gastosData)
       setCentrosCosto(centrosCostoData)
       setClasificacionesIniciales(clasifInicialesData)
       setClasificacionesFinanzas(clasifFinanzasData)
+      setEmpresasGeneradoras(empresasData)
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
@@ -886,8 +889,7 @@ function GastosPage({ user }: { user: any }) {
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
                           Empresa Generadora
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={nuevaSolicitud.empresa_generadora}
                           onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, empresa_generadora: e.target.value})}
                           style={{
@@ -897,8 +899,14 @@ function GastosPage({ user }: { user: any }) {
                             borderRadius: '8px',
                             fontSize: '14px'
                           }}
-                          placeholder="Empresa generadora"
-                        />
+                        >
+                          <option value="">Selecciona empresa generadora</option>
+                          {empresasGeneradoras.map((empresa) => (
+                            <option key={empresa.codigo} value={empresa.nombre}>
+                              {empresa.nombre}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>

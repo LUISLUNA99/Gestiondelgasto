@@ -62,6 +62,26 @@ export const clasificacionesService = {
   }
 }
 
+// Servicios de empresas generadoras
+export const empresasGeneradorasService = {
+  // Obtener todas las empresas generadoras activas
+  async getEmpresasGeneradoras() {
+    try {
+      const { data, error } = await supabase
+        .from('empresas_generadoras')
+        .select('codigo, nombre')
+        .eq('activo', true)
+        .order('codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener empresas generadoras:', error)
+      return []
+    }
+  }
+}
+
 // Servicios de autenticación
 export const authService = {
   // Iniciar sesión con email y contraseña
