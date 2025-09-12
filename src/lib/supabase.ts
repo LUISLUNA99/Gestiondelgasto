@@ -25,6 +25,43 @@ export const centrosCostoService = {
   }
 }
 
+// Servicios de clasificaciones
+export const clasificacionesService = {
+  // Obtener clasificaciones iniciales
+  async getClasificacionesIniciales() {
+    try {
+      const { data, error } = await supabase
+        .from('clasificaciones_iniciales')
+        .select('codigo, nombre')
+        .eq('activo', true)
+        .order('codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener clasificaciones iniciales:', error)
+      return []
+    }
+  },
+
+  // Obtener clasificaciones de finanzas
+  async getClasificacionesFinanzas() {
+    try {
+      const { data, error } = await supabase
+        .from('clasificaciones_finanzas')
+        .select('codigo, nombre')
+        .eq('activo', true)
+        .order('codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener clasificaciones de finanzas:', error)
+      return []
+    }
+  }
+}
+
 // Servicios de autenticación
 export const authService = {
   // Iniciar sesión con email y contraseña

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, centrosCostoService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, clasificacionesService, type Gasto } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -347,6 +347,8 @@ function GastosPage({ user }: { user: any }) {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [centrosCosto, setCentrosCosto] = useState<any[]>([])
+  const [clasificacionesIniciales, setClasificacionesIniciales] = useState<any[]>([])
+  const [clasificacionesFinanzas, setClasificacionesFinanzas] = useState<any[]>([])
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
     solicitante: '',
     centro_costo: '',
@@ -383,12 +385,16 @@ function GastosPage({ user }: { user: any }) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [gastosData, centrosCostoData] = await Promise.all([
+      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData] = await Promise.all([
         gastosService.getGastos(),
-        centrosCostoService.getCentrosCosto()
+        centrosCostoService.getCentrosCosto(),
+        clasificacionesService.getClasificacionesIniciales(),
+        clasificacionesService.getClasificacionesFinanzas()
       ])
       setGastos(gastosData)
       setCentrosCosto(centrosCostoData)
+      setClasificacionesIniciales(clasifInicialesData)
+      setClasificacionesFinanzas(clasifFinanzasData)
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
@@ -778,9 +784,11 @@ function GastosPage({ user }: { user: any }) {
                           }}
                         >
                           <option value="">Selecciona clasificación</option>
-                          <option value="Operativo">Operativo</option>
-                          <option value="Administrativo">Administrativo</option>
-                          <option value="Comercial">Comercial</option>
+                          {clasificacionesIniciales.map((clasificacion) => (
+                            <option key={clasificacion.codigo} value={clasificacion.nombre}>
+                              {clasificacion.nombre}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -799,9 +807,11 @@ function GastosPage({ user }: { user: any }) {
                           }}
                         >
                           <option value="">Selecciona clasificación</option>
-                          <option value="Gasto">Gasto</option>
-                          <option value="Inversión">Inversión</option>
-                          <option value="Capital">Capital</option>
+                          {clasificacionesFinanzas.map((clasificacion) => (
+                            <option key={clasificacion.codigo} value={clasificacion.nombre}>
+                              {clasificacion.nombre}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
