@@ -712,7 +712,15 @@ function GastosPage({ user }: { user: any }) {
                         </label>
                         <select
                           value={nuevaSolicitud.centro_costo}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, centro_costo: e.target.value})}
+                          onChange={(e) => {
+                            const codigoSeleccionado = e.target.value
+                            const centroSeleccionado = centrosCosto.find(centro => centro.codigo === codigoSeleccionado)
+                            setNuevaSolicitud({
+                              ...nuevaSolicitud, 
+                              centro_costo: codigoSeleccionado,
+                              proyecto: centroSeleccionado ? centroSeleccionado.nombre_actual : ''
+                            })
+                          }}
                           style={{
                             width: '100%',
                             padding: '12px',
@@ -724,27 +732,29 @@ function GastosPage({ user }: { user: any }) {
                           <option value="">Seleccionar centro de costo</option>
                           {centrosCosto.map((centro) => (
                             <option key={centro.codigo} value={centro.codigo}>
-                              {centro.codigo} - {centro.nombre_actual}
+                              {centro.codigo}
                             </option>
                           ))}
                         </select>
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Proyecto (Clave del Centro)
+                          Proyecto (Nombre del Centro)
                         </label>
                         <input
                           type="text"
                           value={nuevaSolicitud.proyecto}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, proyecto: e.target.value})}
+                          readOnly
                           style={{
                             width: '100%',
                             padding: '12px',
                             border: '1px solid #d1d5db',
                             borderRadius: '8px',
-                            fontSize: '14px'
+                            fontSize: '14px',
+                            backgroundColor: '#f9fafb',
+                            color: '#6b7280'
                           }}
-                          placeholder="Clave del proyecto"
+                          placeholder="Selecciona un centro de costo"
                         />
                       </div>
                     </div>
