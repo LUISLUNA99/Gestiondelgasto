@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, type Gasto } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -350,6 +350,7 @@ function GastosPage({ user }: { user: any }) {
   const [clasificacionesIniciales, setClasificacionesIniciales] = useState<any[]>([])
   const [clasificacionesFinanzas, setClasificacionesFinanzas] = useState<any[]>([])
   const [empresasGeneradoras, setEmpresasGeneradoras] = useState<any[]>([])
+  const [proveedores, setProveedores] = useState<any[]>([])
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
     solicitante: '',
     centro_costo: '',
@@ -386,18 +387,20 @@ function GastosPage({ user }: { user: any }) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData] = await Promise.all([
+      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData, proveedoresData] = await Promise.all([
         gastosService.getGastos(),
         centrosCostoService.getCentrosCosto(),
         clasificacionesService.getClasificacionesIniciales(),
         clasificacionesService.getClasificacionesFinanzas(),
-        empresasGeneradorasService.getEmpresasGeneradoras()
+        empresasGeneradorasService.getEmpresasGeneradoras(),
+        proveedoresService.getProveedores()
       ])
       setGastos(gastosData)
       setCentrosCosto(centrosCostoData)
       setClasificacionesIniciales(clasifInicialesData)
       setClasificacionesFinanzas(clasifFinanzasData)
       setEmpresasGeneradoras(empresasData)
+      setProveedores(proveedoresData)
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
@@ -939,8 +942,7 @@ function GastosPage({ user }: { user: any }) {
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
                           Proveedor
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={nuevaSolicitud.proveedor}
                           onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, proveedor: e.target.value})}
                           style={{
@@ -950,8 +952,14 @@ function GastosPage({ user }: { user: any }) {
                             borderRadius: '8px',
                             fontSize: '14px'
                           }}
-                          placeholder="Proveedor"
-                        />
+                        >
+                          <option value="">Selecciona proveedor</option>
+                          {proveedores.map((proveedor) => (
+                            <option key={proveedor.codigo} value={proveedor.nombre}>
+                              {proveedor.nombre}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>

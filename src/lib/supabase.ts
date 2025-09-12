@@ -82,6 +82,26 @@ export const empresasGeneradorasService = {
   }
 }
 
+// Servicios de proveedores
+export const proveedoresService = {
+  // Obtener todos los proveedores activos
+  async getProveedores() {
+    try {
+      const { data, error } = await supabase
+        .from('proveedores')
+        .select('codigo, nombre, rfc')
+        .eq('activo', true)
+        .order('codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener proveedores:', error)
+      return []
+    }
+  }
+}
+
 // Servicios de autenticación
 export const authService = {
   // Iniciar sesión con email y contraseña
