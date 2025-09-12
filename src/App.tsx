@@ -912,8 +912,7 @@ function GastosPage({ user }: { user: any }) {
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
                           Empresa Pagadora
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={nuevaSolicitud.empresa_pagadora}
                           onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, empresa_pagadora: e.target.value})}
                           style={{
@@ -923,8 +922,14 @@ function GastosPage({ user }: { user: any }) {
                             borderRadius: '8px',
                             fontSize: '14px'
                           }}
-                          placeholder="Empresa pagadora"
-                        />
+                        >
+                          <option value="">Selecciona empresa pagadora</option>
+                          {empresasGeneradoras.map((empresa) => (
+                            <option key={empresa.codigo} value={empresa.nombre}>
+                              {empresa.nombre}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
