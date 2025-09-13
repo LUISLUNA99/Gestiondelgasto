@@ -109,7 +109,7 @@ export const cuentasContablesService = {
     try {
       const { data, error } = await supabase
         .from('cuentas_contables')
-        .select('codigo, nombre, empresa')
+        .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
         .eq('activo', true)
         .order('empresa, codigo')
       
@@ -126,7 +126,7 @@ export const cuentasContablesService = {
     try {
       const { data, error } = await supabase
         .from('cuentas_contables')
-        .select('codigo, nombre, empresa')
+        .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
         .eq('activo', true)
         .eq('empresa', empresa)
         .order('codigo')
@@ -281,7 +281,19 @@ export interface CentroCosto {
 
 export interface CodigoContable {
   id: string
+  nivel: string
+  codigo: string
   nombre: string
+  tipo: string
+  tipo_2: string
+  dig_agr: string
+  edo_fin: string
+  moneda: string
+  seg_neg: string
+  rubro_nif: string
+  agrupador_sat: string
+  empresa: string
+  activo: boolean
   created_at?: string
 }
 
