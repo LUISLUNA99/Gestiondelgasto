@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, type Gasto } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -351,6 +351,7 @@ function GastosPage({ user }: { user: any }) {
   const [clasificacionesFinanzas, setClasificacionesFinanzas] = useState<any[]>([])
   const [empresasGeneradoras, setEmpresasGeneradoras] = useState<any[]>([])
   const [proveedores, setProveedores] = useState<any[]>([])
+  const [cuentasContables, setCuentasContables] = useState<any[]>([])
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
     solicitante: '',
     centro_costo: '',
@@ -379,6 +380,14 @@ function GastosPage({ user }: { user: any }) {
     }
   }, [user])
 
+  // Limpiar código contable cuando cambie la empresa generadora
+  useEffect(() => {
+    setNuevaSolicitud(prev => ({
+      ...prev,
+      codigo_contable: ''
+    }))
+  }, [nuevaSolicitud.empresa_generadora])
+
   // Cargar datos al montar el componente
   useEffect(() => {
     cargarDatos()
@@ -387,13 +396,14 @@ function GastosPage({ user }: { user: any }) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData, proveedoresData] = await Promise.all([
+      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData, proveedoresData, cuentasData] = await Promise.all([
         gastosService.getGastos(),
         centrosCostoService.getCentrosCosto(),
         clasificacionesService.getClasificacionesIniciales(),
         clasificacionesService.getClasificacionesFinanzas(),
         empresasGeneradorasService.getEmpresasGeneradoras(),
-        proveedoresService.getProveedores()
+        proveedoresService.getProveedores(),
+        cuentasContablesService.getCuentasContables()
       ])
       setGastos(gastosData)
       setCentrosCosto(centrosCostoData)
@@ -401,6 +411,7 @@ function GastosPage({ user }: { user: any }) {
       setClasificacionesFinanzas(clasifFinanzasData)
       setEmpresasGeneradoras(empresasData)
       setProveedores(proveedoresData)
+      setCuentasContables(cuentasData)
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
@@ -965,8 +976,7 @@ function GastosPage({ user }: { user: any }) {
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
                           Código Contable
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={nuevaSolicitud.codigo_contable}
                           onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, codigo_contable: e.target.value})}
                           style={{
@@ -976,8 +986,16 @@ function GastosPage({ user }: { user: any }) {
                             borderRadius: '8px',
                             fontSize: '14px'
                           }}
-                          placeholder="Código contable"
-                        />
+                        >
+                          <option value="">Selecciona código contable</option>
+                          {cuentasContables
+                            .filter(cuenta => cuenta.empresa === nuevaSolicitud.empresa_generadora)
+                            .map((cuenta) => (
+                              <option key={`${cuenta.empresa}-${cuenta.codigo}`} value={cuenta.codigo}>
+                                {cuenta.codigo} - {cuenta.nombre}
+                              </option>
+                            ))}
+                        </select>
                       </div>
                     </div>
 

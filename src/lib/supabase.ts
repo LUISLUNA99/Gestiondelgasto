@@ -102,6 +102,44 @@ export const proveedoresService = {
   }
 }
 
+// Servicios de cuentas contables
+export const cuentasContablesService = {
+  // Obtener todas las cuentas contables activas
+  async getCuentasContables() {
+    try {
+      const { data, error } = await supabase
+        .from('cuentas_contables')
+        .select('codigo, nombre, empresa')
+        .eq('activo', true)
+        .order('empresa, codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener cuentas contables:', error)
+      return []
+    }
+  },
+
+  // Obtener cuentas contables por empresa
+  async getCuentasContablesByEmpresa(empresa: string) {
+    try {
+      const { data, error } = await supabase
+        .from('cuentas_contables')
+        .select('codigo, nombre, empresa')
+        .eq('activo', true)
+        .eq('empresa', empresa)
+        .order('codigo')
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al obtener cuentas contables por empresa:', error)
+      return []
+    }
+  }
+}
+
 // Servicios de autenticación
 export const authService = {
   // Iniciar sesión con email y contraseña
