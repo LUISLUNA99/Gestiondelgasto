@@ -107,16 +107,27 @@ export const cuentasContablesService = {
   // Obtener todas las cuentas contables activas
   async getCuentasContables() {
     try {
+      console.log('🔍 Obteniendo cuentas contables...')
       const { data, error } = await supabase
         .from('cuentas_contables')
         .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
         .eq('activo', true)
         .order('empresa, codigo')
       
-      if (error) throw error
+      if (error) {
+        console.error('❌ Error en consulta cuentas contables:', error)
+        throw error
+      }
+      
+      console.log('✅ Cuentas contables obtenidas:', data?.length || 0)
+      console.log('📊 Distribución por empresa:', data?.reduce((acc, item) => {
+        acc[item.empresa] = (acc[item.empresa] || 0) + 1
+        return acc
+      }, {}) || {})
+      
       return data
     } catch (error) {
-      console.error('Error al obtener cuentas contables:', error)
+      console.error('❌ Error al obtener cuentas contables:', error)
       return []
     }
   },
