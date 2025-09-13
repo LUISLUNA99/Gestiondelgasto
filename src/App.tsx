@@ -988,13 +988,18 @@ function GastosPage({ user }: { user: any }) {
                           }}
                         >
                           <option value="">Selecciona código contable</option>
-                          {cuentasContables
-                            .filter(cuenta => cuenta.empresa === nuevaSolicitud.empresa_generadora)
-                            .map((cuenta) => (
+                          {(() => {
+                            const cuentasFiltradas = cuentasContables.filter(cuenta => cuenta.empresa === nuevaSolicitud.empresa_generadora);
+                            console.log('Empresa seleccionada:', nuevaSolicitud.empresa_generadora);
+                            console.log('Total cuentas contables:', cuentasContables.length);
+                            console.log('Cuentas filtradas:', cuentasFiltradas.length);
+                            console.log('Primeras 5 cuentas filtradas:', cuentasFiltradas.slice(0, 5));
+                            return cuentasFiltradas.map((cuenta) => (
                               <option key={`${cuenta.empresa}-${cuenta.codigo}`} value={cuenta.codigo}>
                                 {cuenta.codigo} - {cuenta.nombre}
                               </option>
-                            ))}
+                            ));
+                          })()}
                         </select>
                       </div>
                     </div>
