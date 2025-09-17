@@ -905,13 +905,13 @@ function GastosPage({ user }: { user: any }) {
                             </span>
                           </div>
                           
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
                               <span>👤</span>
                               <span style={{ fontWeight: '500', color: '#374151' }}>Usuario:</span>
                               {solicitud.solicitante}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
                               <span>📅</span>
                               <span style={{ fontWeight: '500', color: '#374151' }}>Fecha:</span>
                               {new Date(solicitud.fecha_solicitud).toLocaleDateString('es-ES')}
@@ -1017,17 +1017,6 @@ function GastosPage({ user }: { user: any }) {
                           position: 'relative',
                           gap: '12px'
                         }}>
-                          {/* Línea de conexión */}
-                          <div style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            width: 'calc(100% - 24px)',
-                            height: '2px',
-                            backgroundColor: '#e5e7eb',
-                            zIndex: 1
-                          }} />
-                          
                           {/* Etapa 1: Solicitud */}
                           <div style={{ 
                             display: 'flex', 
@@ -1061,6 +1050,9 @@ function GastosPage({ user }: { user: any }) {
                               Solicitud
                             </span>
                           </div>
+                          
+                          {/* Conector 1-2 */}
+                          <div style={{ width: '12px', height: '2px', backgroundColor: '#e5e7eb', zIndex: 1 }} />
                           
                           {/* Etapa 2: Autorización */}
                           <div style={{ 
@@ -1097,6 +1089,9 @@ function GastosPage({ user }: { user: any }) {
                               Autorización
                             </span>
                           </div>
+                          
+                          {/* Conector 2-3 */}
+                          <div style={{ width: '12px', height: '2px', backgroundColor: '#e5e7eb', zIndex: 1 }} />
                           
                           {/* Etapa 3: Finanzas */}
                           <div style={{ 
