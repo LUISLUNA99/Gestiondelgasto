@@ -386,6 +386,17 @@ function GastosPage({ user }: { user: any }) {
     abierta: false,
     solicitud: null as any
   })
+  
+  // Estado para modal de finanzas
+  const [modalFinanzas, setModalFinanzas] = useState({
+    abierto: false,
+    solicitudId: '',
+    clasificacion: '',
+    codigo_contable: '',
+    estado_pago: '',
+    evidencia_url: '',
+    observaciones: ''
+  })
 
   // Actualizar el solicitante cuando cambie el usuario
   useEffect(() => {
@@ -496,6 +507,59 @@ function GastosPage({ user }: { user: any }) {
     } catch (error) {
       console.error('Error al procesar autorización:', error)
       alert('Error al procesar la autorización. Por favor intenta de nuevo.')
+    }
+  }
+
+  // Funciones para finanzas
+  const abrirModalFinanzas = (solicitudId: string) => {
+    setModalFinanzas({
+      abierto: true,
+      solicitudId,
+      clasificacion: '',
+      codigo_contable: '',
+      estado_pago: '',
+      evidencia_url: '',
+      observaciones: ''
+    })
+  }
+
+  const cerrarModalFinanzas = () => {
+    setModalFinanzas({
+      abierto: false,
+      solicitudId: '',
+      clasificacion: '',
+      codigo_contable: '',
+      estado_pago: '',
+      evidencia_url: '',
+      observaciones: ''
+    })
+  }
+
+  const procesarFinanzas = async () => {
+    try {
+      const finanzasData = {
+        clasificacion: modalFinanzas.clasificacion,
+        codigo_contable: modalFinanzas.codigo_contable,
+        estado_pago: modalFinanzas.estado_pago,
+        evidencia_url: modalFinanzas.evidencia_url,
+        observaciones: modalFinanzas.observaciones,
+        procesado_por: user?.email || 'Usuario'
+      }
+
+      await solicitudesCompraService.actualizarFinanzas(modalFinanzas.solicitudId, finanzasData)
+      
+      // Recargar las solicitudes
+      await cargarDatos()
+      
+      // Cerrar modal
+      cerrarModalFinanzas()
+      
+      // Mostrar mensaje de éxito
+      alert('Solicitud procesada en finanzas exitosamente')
+      
+    } catch (error) {
+      console.error('Error al procesar finanzas:', error)
+      alert('Error al procesar en finanzas. Por favor intenta de nuevo.')
     }
   }
 
@@ -837,11 +901,39 @@ function GastosPage({ user }: { user: any }) {
                           
                           {/* Estado ya procesado */}
                           {solicitud.status_autorizacion !== 'Pendiente' && (
-                            <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                              {solicitud.status_autorizacion === 'Aprobado' ? '✅ Aprobado' : '❌ Rechazado'}
-                              {solicitud.fecha_autorizacion && (
-                                <div style={{ fontSize: '10px', marginTop: '2px' }}>
-                                  {new Date(solicitud.fecha_autorizacion).toLocaleDateString('es-ES')}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                {solicitud.status_autorizacion === 'Aprobado' ? '✅ Aprobado' : '❌ Rechazado'}
+                                {solicitud.fecha_autorizacion && (
+                                  <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                                    {new Date(solicitud.fecha_autorizacion).toLocaleDateString('es-ES')}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Botón para procesar en finanzas */}
+                              {solicitud.status_autorizacion === 'Aprobado' && solicitud.status_finanzas === 'Pendiente' && (
+                                <button
+                                  onClick={() => abrirModalFinanzas(solicitud.id)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    backgroundColor: '#7c3aed',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  💰 Procesar
+                                </button>
+                              )}
+                              
+                              {/* Estado de finanzas */}
+                              {solicitud.status_finanzas === 'Procesado' && (
+                                <div style={{ fontSize: '11px', color: '#059669', fontWeight: '500' }}>
+                                  ✅ Procesado
                                 </div>
                               )}
                             </div>
@@ -1769,6 +1861,194 @@ function GastosPage({ user }: { user: any }) {
                 }}
               >
                 {modalAutorizacion.accion === 'Aprobado' ? 'Aprobar' : 'Rechazar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Finanzas */}
+      {modalFinanzas.abierto && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '600px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
+                💰 Procesar en Finanzas
+              </h3>
+              <p style={{ fontSize: '14px', color: '#6b7280' }}>
+                Completa la información financiera para procesar esta solicitud
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Clasificación Finanzas */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Clasificación Finanzas *
+                </label>
+                <select
+                  value={modalFinanzas.clasificacion}
+                  onChange={(e) => setModalFinanzas(prev => ({ ...prev, clasificacion: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                  required
+                >
+                  <option value="">Selecciona clasificación</option>
+                  {clasificacionesFinanzas.map((clasif) => (
+                    <option key={clasif.codigo} value={clasif.nombre}>
+                      {clasif.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Código Contable Finanzas */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Código Contable Finanzas *
+                </label>
+                <select
+                  value={modalFinanzas.codigo_contable}
+                  onChange={(e) => setModalFinanzas(prev => ({ ...prev, codigo_contable: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                  required
+                >
+                  <option value="">Selecciona código contable</option>
+                  {cuentasContables.map((cuenta) => (
+                    <option key={cuenta.codigo} value={cuenta.codigo}>
+                      {cuenta.codigo} - {cuenta.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Estado de Pago */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Estado de Pago *
+                </label>
+                <select
+                  value={modalFinanzas.estado_pago}
+                  onChange={(e) => setModalFinanzas(prev => ({ ...prev, estado_pago: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                  required
+                >
+                  <option value="">Selecciona estado</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Pagado">Pagado</option>
+                  <option value="Parcial">Parcial</option>
+                </select>
+              </div>
+
+              {/* Evidencia del Pago */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  URL de Evidencia del Pago
+                </label>
+                <input
+                  type="url"
+                  value={modalFinanzas.evidencia_url}
+                  onChange={(e) => setModalFinanzas(prev => ({ ...prev, evidencia_url: e.target.value }))}
+                  placeholder="https://ejemplo.com/evidencia.pdf"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Observaciones de Finanzas
+                </label>
+                <textarea
+                  value={modalFinanzas.observaciones}
+                  onChange={(e) => setModalFinanzas(prev => ({ ...prev, observaciones: e.target.value }))}
+                  placeholder="Agrega comentarios adicionales sobre el procesamiento financiero..."
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    minHeight: '80px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button
+                onClick={cerrarModalFinanzas}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={procesarFinanzas}
+                disabled={!modalFinanzas.clasificacion || !modalFinanzas.codigo_contable || !modalFinanzas.estado_pago}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#7c3aed',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: !modalFinanzas.clasificacion || !modalFinanzas.codigo_contable || !modalFinanzas.estado_pago ? 'not-allowed' : 'pointer',
+                  opacity: !modalFinanzas.clasificacion || !modalFinanzas.codigo_contable || !modalFinanzas.estado_pago ? 0.5 : 1
+                }}
+              >
+                Procesar en Finanzas
               </button>
             </div>
           </div>
