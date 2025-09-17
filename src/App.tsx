@@ -396,6 +396,7 @@ function GastosPage({ user }: { user: any }) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
+      console.log('🚀 Iniciando carga de datos...')
       const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData, proveedoresData, cuentasData] = await Promise.all([
         gastosService.getGastos(),
         centrosCostoService.getCentrosCosto(),
@@ -405,6 +406,7 @@ function GastosPage({ user }: { user: any }) {
         proveedoresService.getProveedores(),
         cuentasContablesService.getCuentasContables()
       ])
+      console.log('✅ Datos cargados exitosamente')
       setGastos(gastosData)
       setCentrosCosto(centrosCostoData)
       setClasificacionesIniciales(clasifInicialesData)
