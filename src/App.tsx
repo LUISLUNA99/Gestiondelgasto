@@ -380,6 +380,12 @@ function GastosPage({ user }: { user: any }) {
     accion: '',
     observacion: ''
   })
+  
+  // Estado para pantalla de detalle
+  const [pantallaDetalle, setPantallaDetalle] = useState({
+    abierta: false,
+    solicitud: null as any
+  })
 
   // Actualizar el solicitante cuando cambie el usuario
   useEffect(() => {
@@ -428,6 +434,22 @@ function GastosPage({ user }: { user: any }) {
       const monto = parseFloat(bien.monto_estimado) || 0
       return total + monto
     }, 0)
+  }
+
+  // Funciones para pantalla de detalle
+  const abrirPantallaDetalle = (solicitudId: string) => {
+    const solicitud = solicitudes.find(s => s.id === solicitudId)
+    setPantallaDetalle({
+      abierta: true,
+      solicitud
+    })
+  }
+
+  const cerrarPantallaDetalle = () => {
+    setPantallaDetalle({
+      abierta: false,
+      solicitud: null
+    })
   }
 
   // Funciones para autorización
@@ -789,14 +811,14 @@ function GastosPage({ user }: { user: any }) {
                             </div>
                           </div>
                           
-                          {/* Botones de acción para autorización */}
+                          {/* Botón para revisar solicitud */}
                           {solicitud.status_autorizacion === 'Pendiente' && (
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button
-                                onClick={() => abrirModalAutorizacion(solicitud.id, 'Aprobado')}
+                                onClick={() => abrirPantallaDetalle(solicitud.id)}
                                 style={{
                                   padding: '8px 16px',
-                                  backgroundColor: '#16a34a',
+                                  backgroundColor: '#2563eb',
                                   color: 'white',
                                   border: 'none',
                                   borderRadius: '6px',
@@ -805,22 +827,7 @@ function GastosPage({ user }: { user: any }) {
                                   cursor: 'pointer'
                                 }}
                               >
-                                ✅ Aprobar
-                              </button>
-                              <button
-                                onClick={() => abrirModalAutorizacion(solicitud.id, 'Rechazado')}
-                                style={{
-                                  padding: '8px 16px',
-                                  backgroundColor: '#dc2626',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: '500',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                ❌ Rechazar
+                                👁️ Revisar
                               </button>
                             </div>
                           )}
@@ -1453,6 +1460,221 @@ function GastosPage({ user }: { user: any }) {
           </div>
         )}
       </main>
+
+      {/* Pantalla de Detalle de Solicitud */}
+      {pantallaDetalle.abierta && pantallaDetalle.solicitud && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #e5e7eb' }}>
+              <div>
+                <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                  Detalle de Solicitud de Compra
+                </h2>
+                <p style={{ fontSize: '16px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                  Folio: {pantallaDetalle.solicitud.folio}
+                </p>
+              </div>
+              <button
+                onClick={cerrarPantallaDetalle}
+                style={{
+                  padding: '8px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#6b7280',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '20px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Información General */}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
+                📋 Información General
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Solicitante</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.solicitante}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Fecha de Solicitud</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>
+                    {new Date(pantallaDetalle.solicitud.fecha_solicitud).toLocaleDateString('es-ES')}
+                  </p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Centro de Costo</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.centro_costo}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Proyecto</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.proyecto}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Clasificación Inicial</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.clasificacion_inicial}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Mes de Servicio</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.mes_servicio}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Mes de Pago</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.mes_pago}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Empresa Generadora</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.empresa_generadora}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Empresa Pagadora</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.empresa_pagadora}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Código Contable</label>
+                  <p style={{ fontSize: '16px', color: '#111827', margin: '4px 0' }}>{pantallaDetalle.solicitud.codigo_contable}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bienes Solicitados */}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
+                🛒 Bienes Solicitados
+              </h3>
+              <div style={{ backgroundColor: '#f9fafb', borderRadius: '8px', padding: '16px' }}>
+                {pantallaDetalle.solicitud.bienes_solicitud?.map((bien: any, index: number) => (
+                  <div key={bien.id} style={{ 
+                    backgroundColor: 'white', 
+                    borderRadius: '8px', 
+                    padding: '16px', 
+                    marginBottom: '12px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                      <h4 style={{ fontSize: '16px', fontWeight: '500', color: '#111827', margin: 0 }}>
+                        Bien #{index + 1}
+                      </h4>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#111827' }}>
+                        {new Intl.NumberFormat('es-MX', {
+                          style: 'currency',
+                          currency: 'MXN',
+                          minimumFractionDigits: 2
+                        }).format(bien.monto_estimado || 0)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', fontSize: '14px' }}>
+                      <div>
+                        <span style={{ color: '#6b7280' }}>Cantidad:</span> {bien.cantidad}
+                      </div>
+                      <div>
+                        <span style={{ color: '#6b7280' }}>Moneda:</span> {bien.moneda}
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '8px' }}>
+                      <span style={{ color: '#6b7280', fontSize: '14px' }}>Descripción:</span>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#111827' }}>{bien.descripcion}</p>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Total */}
+                <div style={{ 
+                  backgroundColor: '#1e293b', 
+                  color: 'white', 
+                  borderRadius: '8px', 
+                  padding: '16px', 
+                  textAlign: 'center',
+                  marginTop: '16px'
+                }}>
+                  <span style={{ fontSize: '18px', fontWeight: '600' }}>
+                    Total Estimado: {new Intl.NumberFormat('es-MX', {
+                      style: 'currency',
+                      currency: 'MXN',
+                      minimumFractionDigits: 2
+                    }).format(pantallaDetalle.solicitud.total_estimado || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de Acción */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
+              <button
+                onClick={cerrarPantallaDetalle}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => abrirModalAutorizacion(pantallaDetalle.solicitud.id, 'Aprobado')}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#16a34a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                ✅ Aprobar Solicitud
+              </button>
+              <button
+                onClick={() => abrirModalAutorizacion(pantallaDetalle.solicitud.id, 'Rechazado')}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                ❌ Rechazar Solicitud
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Autorización */}
       {modalAutorizacion.abierto && (
