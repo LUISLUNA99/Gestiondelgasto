@@ -113,6 +113,7 @@ export const cuentasContablesService = {
         .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
         .eq('activo', true)
         .order('empresa, codigo')
+        .limit(5000)
       
       if (error) {
         console.error('❌ Error en consulta cuentas contables:', error)
@@ -141,6 +142,7 @@ export const cuentasContablesService = {
         .eq('activo', true)
         .eq('empresa', empresa)
         .order('codigo')
+        .limit(5000)
       
       if (error) throw error
       return data
