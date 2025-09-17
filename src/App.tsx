@@ -373,6 +373,9 @@ function GastosPage({ user }: { user: any }) {
     moneda: 'MXN'
   }])
   
+  // Estado para archivos de factura
+  const [archivosFactura, setArchivosFactura] = useState<File[]>([])
+  
   // Estado para modal de autorización
   const [modalAutorizacion, setModalAutorizacion] = useState({
     abierto: false,
@@ -432,6 +435,45 @@ function GastosPage({ user }: { user: any }) {
     if (bienes.length > 1) {
       setBienes(bienes.filter(bien => bien.id !== id))
     }
+  }
+  
+  // Función para manejar archivos de factura
+  const manejarArchivosFactura = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    setArchivosFactura(prev => [...prev, ...files])
+  }
+  
+  // Función para eliminar archivo de factura
+  const eliminarArchivoFactura = (index: number) => {
+    setArchivosFactura(prev => prev.filter((_, i) => i !== index))
+  }
+  
+  // Función para subir archivos de factura a Supabase Storage
+  const subirArchivosFactura = async (solicitudId: string) => {
+    if (archivosFactura.length === 0) return []
+    
+    const urls: string[] = []
+    
+    for (const archivo of archivosFactura) {
+      try {
+        const fileName = `factura-${solicitudId}-${Date.now()}-${archivo.name}`
+        const { data, error } = await supabase.storage
+          .from('evidencias-pago')
+          .upload(fileName, archivo)
+        
+        if (error) throw error
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('evidencias-pago')
+          .getPublicUrl(fileName)
+        
+        urls.push(publicUrl)
+      } catch (error) {
+        console.error('Error al subir archivo de factura:', error)
+      }
+    }
+    
+    return urls
   }
 
   const actualizarBien = (id: number, campo: string, valor: string) => {
@@ -689,10 +731,22 @@ function GastosPage({ user }: { user: any }) {
           moneda: bien.moneda
         }))
         
-        // Guardar en la base de datos
-        const resultado = await solicitudesCompraService.crearSolicitud(solicitudData, bienesData)
-        
-        console.log('Solicitud guardada:', resultado)
+                  // Guardar en la base de datos
+                  const resultado = await solicitudesCompraService.crearSolicitud(solicitudData, bienesData)
+                  
+                  // Subir archivos de factura si existen
+                  if (archivosFactura.length > 0) {
+                    const urlsFactura = await subirArchivosFactura(resultado.solicitud.id)
+                    if (urlsFactura.length > 0) {
+                      // Actualizar la solicitud con las URLs de factura
+                      await supabase
+                        .from('solicitudes_compra')
+                        .update({ factura_url: urlsFactura.join(',') })
+                        .eq('id', resultado.solicitud.id)
+                    }
+                  }
+                  
+                  console.log('Solicitud guardada:', resultado)
         
         // Recargar las solicitudes
         await cargarDatos()
@@ -706,26 +760,27 @@ function GastosPage({ user }: { user: any }) {
         
         alert(`Solicitud de compra creada exitosamente\nFolio: ${folioGenerado}\nFecha: ${fechaActual}\nTotal: ${totalFormateado}`)
         
-        // Resetear formulario
-        setNuevaSolicitud({
-          solicitante: '',
-          centro_costo: '',
-          proyecto: '',
-          clasificacion_inicial: '',
-          mes_servicio: '',
-          mes_pago: '',
-          empresa_generadora: '',
-          empresa_pagadora: '',
-          codigo_contable: ''
-        })
-        setBienes([{
-          id: 1,
-          cantidad: '',
-          descripcion: '',
-          monto_estimado: '',
-          moneda: 'MXN'
-        }])
-        setShowForm(false)
+                  // Resetear formulario
+                  setNuevaSolicitud({
+                    solicitante: '',
+                    centro_costo: '',
+                    proyecto: '',
+                    clasificacion_inicial: '',
+                    mes_servicio: '',
+                    mes_pago: '',
+                    empresa_generadora: '',
+                    empresa_pagadora: '',
+                    codigo_contable: ''
+                  })
+                  setBienes([{
+                    id: 1,
+                    cantidad: '',
+                    descripcion: '',
+                    monto_estimado: '',
+                    moneda: 'MXN'
+                  }])
+                  setArchivosFactura([])
+                  setShowForm(false)
         
       } catch (error) {
         console.error('Error al crear solicitud:', error)
@@ -1703,7 +1758,102 @@ function GastosPage({ user }: { user: any }) {
                       </div>
                     </div>
 
-
+                    {/* Sección de Factura (Opcional) */}
+                    <div style={{ 
+                      backgroundColor: '#f8fafc', 
+                      padding: '20px', 
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      marginTop: '24px'
+                    }}>
+                      <h3 style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '600', 
+                        color: '#374151', 
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        📄 Factura de la Compra (Opcional)
+                      </h3>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          onChange={manejarArchivosFactura}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            backgroundColor: 'white'
+                          }}
+                        />
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: '#6b7280', 
+                          marginTop: '4px' 
+                        }}>
+                          Formatos permitidos: PDF, JPG, PNG, DOC, DOCX
+                        </p>
+                      </div>
+                      
+                      {/* Lista de archivos seleccionados */}
+                      {archivosFactura.length > 0 && (
+                        <div>
+                          <h4 style={{ 
+                            fontSize: '14px', 
+                            fontWeight: '500', 
+                            color: '#374151', 
+                            marginBottom: '8px' 
+                          }}>
+                            Archivos seleccionados:
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {archivosFactura.map((archivo, index) => (
+                              <div key={index} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '6px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span>📄</span>
+                                  <span style={{ fontSize: '14px', color: '#374151' }}>
+                                    {archivo.name}
+                                  </span>
+                                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                    ({(archivo.size / 1024 / 1024).toFixed(2)} MB)
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarArchivoFactura(index)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  🗑️ Eliminar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                       <button
