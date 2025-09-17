@@ -400,6 +400,13 @@ function GastosPage({ user }: { user: any }) {
     observaciones: '',
     archivos: [] as File[]
   })
+  
+  // Estado para modal de factura
+  const [modalFactura, setModalFactura] = useState({
+    abierto: false,
+    solicitudId: '',
+    archivos: [] as File[]
+  })
 
   // Actualizar el solicitante cuando cambie el usuario
   useEffect(() => {
@@ -661,6 +668,98 @@ function GastosPage({ user }: { user: any }) {
     } catch (error) {
       console.error('Error al procesar finanzas:', error)
       alert('Error al procesar en finanzas. Por favor intenta de nuevo.')
+    }
+  }
+  
+  // Función para abrir modal de factura
+  const abrirModalFactura = (solicitudId: string) => {
+    setModalFactura({
+      abierto: true,
+      solicitudId,
+      archivos: []
+    })
+  }
+  
+  // Función para cerrar modal de factura
+  const cerrarModalFactura = () => {
+    setModalFactura({
+      abierto: false,
+      solicitudId: '',
+      archivos: []
+    })
+  }
+  
+  // Función para manejar archivos de factura en el modal
+  const manejarArchivosFacturaModal = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    setModalFactura(prev => ({
+      ...prev,
+      archivos: [...prev.archivos, ...files]
+    }))
+  }
+  
+  // Función para eliminar archivo de factura en el modal
+  const eliminarArchivoFacturaModal = (index: number) => {
+    setModalFactura(prev => ({
+      ...prev,
+      archivos: prev.archivos.filter((_, i) => i !== index)
+    }))
+  }
+  
+  // Función para subir archivos de factura del modal
+  const subirArchivosFacturaModal = async (solicitudId: string) => {
+    if (modalFactura.archivos.length === 0) return []
+    
+    const urls: string[] = []
+    
+    for (const archivo of modalFactura.archivos) {
+      try {
+        const fileName = `factura-${solicitudId}-${Date.now()}-${archivo.name}`
+        const { data, error } = await supabase.storage
+          .from('evidencias-pago')
+          .upload(fileName, archivo)
+        
+        if (error) throw error
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('evidencias-pago')
+          .getPublicUrl(fileName)
+        
+        urls.push(publicUrl)
+      } catch (error) {
+        console.error('Error al subir archivo de factura:', error)
+      }
+    }
+    
+    return urls
+  }
+  
+  // Función para procesar factura
+  const procesarFactura = async () => {
+    try {
+      // Subir archivos de factura
+      const urlsFactura = await subirArchivosFacturaModal(modalFactura.solicitudId)
+      
+      if (urlsFactura.length > 0) {
+        // Actualizar la solicitud con las URLs de factura
+        await supabase
+          .from('solicitudes_compra')
+          .update({ 
+            factura_url: urlsFactura.join(','),
+            status_factura: 'Completado',
+            fecha_factura: new Date().toISOString()
+          })
+          .eq('id', modalFactura.solicitudId)
+      }
+      
+      // Cerrar modal y recargar datos
+      cerrarModalFactura()
+      await cargarDatos()
+      
+      alert('Factura adjuntada exitosamente')
+    } catch (error) {
+      console.error('Error al adjuntar factura:', error)
+      alert('Error al adjuntar factura. Por favor intenta de nuevo.')
     }
   }
 
@@ -1048,10 +1147,29 @@ function GastosPage({ user }: { user: any }) {
                                 </button>
                               )}
                               
+                              {/* Botón para adjuntar factura */}
+                              {solicitud.status_finanzas === 'Procesado' && solicitud.status_factura !== 'Completado' && (
+                                <button
+                                  onClick={() => abrirModalFactura(solicitud.id)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    backgroundColor: '#059669',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  📄 Adjuntar Factura
+                                </button>
+                              )}
+                              
                               {/* Estado de finanzas */}
-                              {solicitud.status_finanzas === 'Procesado' && (
+                              {solicitud.status_finanzas === 'Procesado' && solicitud.status_factura === 'Completado' && (
                                 <div style={{ fontSize: '11px', color: '#059669', fontWeight: '500' }}>
-                                  ✅ Procesado
+                                  ✅ Completado
                                 </div>
                               )}
                             </div>
@@ -1180,6 +1298,44 @@ function GastosPage({ user }: { user: any }) {
                               textAlign: 'center'
                             }}>
                               Finanzas
+                            </span>
+                          </div>
+                          
+                          {/* Conector 3-4 */}
+                          <div style={{ width: '12px', height: '2px', backgroundColor: '#e5e7eb', zIndex: 1 }} />
+                          
+                          {/* Etapa 4: Factura */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center',
+                            zIndex: 2,
+                            backgroundColor: 'white',
+                            padding: '0 8px'
+                          }}>
+                            <div style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: solicitud.status_factura === 'Completado' ? '#10b981' : 
+                                             (solicitud.status_finanzas === 'Procesado' ? '#3b82f6' : '#6b7280'),
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}>
+                              {solicitud.status_factura === 'Completado' ? '✓' : '4'}
+                            </div>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              color: '#6b7280', 
+                              marginTop: '4px',
+                              textAlign: 'center'
+                            }}>
+                              Factura
                             </span>
                           </div>
                         </div>
@@ -2442,6 +2598,163 @@ function GastosPage({ user }: { user: any }) {
                 }}
               >
                 Procesar en Finanzas
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de Factura */}
+      {modalFactura.abierto && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          }}>
+            <h2 style={{ 
+              fontSize: '18px', 
+              fontWeight: '600', 
+              color: '#111827', 
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              📄 Adjuntar Factura
+            </h2>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '14px', 
+                fontWeight: '500', 
+                color: '#374151', 
+                marginBottom: '8px' 
+              }}>
+                Seleccionar archivos de factura
+              </label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={manejarArchivosFacturaModal}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              />
+              <p style={{ 
+                fontSize: '12px', 
+                color: '#6b7280', 
+                marginTop: '4px' 
+              }}>
+                Formatos permitidos: PDF, JPG, PNG, DOC, DOCX
+              </p>
+            </div>
+            
+            {/* Lista de archivos seleccionados */}
+            {modalFactura.archivos.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Archivos seleccionados:
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {modalFactura.archivos.map((archivo, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📄</span>
+                        <span style={{ fontSize: '14px', color: '#374151' }}>
+                          {archivo.name}
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                          ({(archivo.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => eliminarArchivoFacturaModal(index)}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={cerrarModalFactura}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={procesarFactura}
+                disabled={modalFactura.archivos.length === 0}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: modalFactura.archivos.length === 0 ? '#9ca3af' : '#059669',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: modalFactura.archivos.length === 0 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Adjuntar Factura
               </button>
             </div>
           </div>
