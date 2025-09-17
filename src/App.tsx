@@ -924,6 +924,133 @@ function GastosPage({ user }: { user: any }) {
                             <p><strong>Proyecto:</strong> {solicitud.proyecto}</p>
                             <p><strong>Bienes:</strong> {solicitud.bienes_solicitud?.length || 0} artículo(s)</p>
                           </div>
+                          
+                          {/* Línea de tiempo de etapas */}
+                          <div style={{ marginTop: '12px' }}>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'space-between',
+                              position: 'relative',
+                              padding: '0 20px'
+                            }}>
+                              {/* Línea de conexión */}
+                              <div style={{
+                                position: 'absolute',
+                                top: '20px',
+                                left: '20px',
+                                right: '20px',
+                                height: '2px',
+                                backgroundColor: '#e5e7eb',
+                                zIndex: 1
+                              }} />
+                              
+                              {/* Etapa 1: Solicitud */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center',
+                                zIndex: 2,
+                                backgroundColor: 'white',
+                                padding: '0 8px'
+                              }}>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '50%',
+                                  backgroundColor: solicitud.status_autorizacion !== 'Pendiente' ? '#10b981' : '#6b7280',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '16px',
+                                  fontWeight: 'bold',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}>
+                                  {solicitud.status_autorizacion !== 'Pendiente' ? '✓' : '1'}
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  color: '#6b7280', 
+                                  marginTop: '4px',
+                                  textAlign: 'center'
+                                }}>
+                                  Solicitud
+                                </span>
+                              </div>
+                              
+                              {/* Etapa 2: Autorización */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center',
+                                zIndex: 2,
+                                backgroundColor: 'white',
+                                padding: '0 8px'
+                              }}>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '50%',
+                                  backgroundColor: solicitud.status_autorizacion === 'Aprobado' ? '#10b981' : 
+                                                 solicitud.status_autorizacion === 'Rechazado' ? '#ef4444' : '#6b7280',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '16px',
+                                  fontWeight: 'bold',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}>
+                                  {solicitud.status_autorizacion === 'Aprobado' ? '✓' : 
+                                   solicitud.status_autorizacion === 'Rechazado' ? '✗' : '2'}
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  color: '#6b7280', 
+                                  marginTop: '4px',
+                                  textAlign: 'center'
+                                }}>
+                                  Autorización
+                                </span>
+                              </div>
+                              
+                              {/* Etapa 3: Finanzas */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center',
+                                zIndex: 2,
+                                backgroundColor: 'white',
+                                padding: '0 8px'
+                              }}>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '50%',
+                                  backgroundColor: solicitud.status_finanzas === 'Procesado' ? '#10b981' : 
+                                                 (solicitud.status_autorizacion === 'Aprobado' ? '#3b82f6' : '#6b7280'),
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '16px',
+                                  fontWeight: 'bold',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}>
+                                  {solicitud.status_finanzas === 'Procesado' ? '✓' : '3'}
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  color: '#6b7280', 
+                                  marginTop: '4px',
+                                  textAlign: 'center'
+                                }}>
+                                  Finanzas
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         
                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
