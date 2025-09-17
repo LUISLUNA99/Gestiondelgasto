@@ -394,7 +394,6 @@ function GastosPage({ user }: { user: any }) {
     clasificacion: '',
     codigo_contable: '',
     estado_pago: '',
-    evidencia_url: '',
     observaciones: '',
     archivos: [] as File[]
   })
@@ -519,7 +518,6 @@ function GastosPage({ user }: { user: any }) {
       clasificacion: '',
       codigo_contable: '',
       estado_pago: '',
-      evidencia_url: '',
       observaciones: '',
       archivos: []
     })
@@ -532,7 +530,6 @@ function GastosPage({ user }: { user: any }) {
       clasificacion: '',
       codigo_contable: '',
       estado_pago: '',
-      evidencia_url: '',
       observaciones: '',
       archivos: []
     })
@@ -589,18 +586,18 @@ function GastosPage({ user }: { user: any }) {
   const procesarFinanzas = async () => {
     try {
       // Subir archivos si hay alguno
-      let urlsEvidencia = modalFinanzas.evidencia_url ? [modalFinanzas.evidencia_url] : []
+      let urlsEvidencia = ''
       
       if (modalFinanzas.archivos.length > 0) {
         const urlsSubidas = await subirArchivos(modalFinanzas.archivos, modalFinanzas.solicitudId)
-        urlsEvidencia = [...urlsEvidencia, ...urlsSubidas]
+        urlsEvidencia = urlsSubidas.join(', ')
       }
 
       const finanzasData = {
         clasificacion: modalFinanzas.clasificacion,
         codigo_contable: modalFinanzas.codigo_contable,
         estado_pago: modalFinanzas.estado_pago,
-        evidencia_url: urlsEvidencia.join(', '), // Unir todas las URLs con comas
+        evidencia_url: urlsEvidencia,
         observaciones: modalFinanzas.observaciones,
         procesado_por: user?.email || 'Usuario'
       }
@@ -2035,26 +2032,6 @@ function GastosPage({ user }: { user: any }) {
                   <option value="Pagado">Pagado</option>
                   <option value="Parcial">Parcial</option>
                 </select>
-              </div>
-
-              {/* Evidencia del Pago - URL */}
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                  URL de Evidencia del Pago (Opcional)
-                </label>
-                <input
-                  type="url"
-                  value={modalFinanzas.evidencia_url}
-                  onChange={(e) => setModalFinanzas(prev => ({ ...prev, evidencia_url: e.target.value }))}
-                  placeholder="https://ejemplo.com/evidencia.pdf"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
               </div>
 
               {/* Evidencia del Pago - Archivos */}
