@@ -484,8 +484,11 @@ function GastosPage({ user }: { user: any }) {
       // Recargar las solicitudes
       await cargarDatos()
       
-      // Cerrar modal
+      // Cerrar modal de autorización
       cerrarModalAutorizacion()
+      
+      // Cerrar pantalla de detalle
+      cerrarPantallaDetalle()
       
       // Mostrar mensaje de éxito
       alert(`Solicitud ${modalAutorizacion.accion.toLowerCase()} exitosamente`)
