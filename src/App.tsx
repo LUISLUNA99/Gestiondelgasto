@@ -1013,7 +1013,7 @@ function GastosPage({ user }: { user: any }) {
                         <div style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
-                          justifyContent: 'center',
+                          justifyContent: 'flex-end',
                           position: 'relative',
                           gap: '12px'
                         }}>
@@ -1021,8 +1021,8 @@ function GastosPage({ user }: { user: any }) {
                           <div style={{
                             position: 'absolute',
                             top: '12px',
-                            left: '12px',
                             right: '12px',
+                            width: 'calc(100% - 24px)',
                             height: '2px',
                             backgroundColor: '#e5e7eb',
                             zIndex: 1
