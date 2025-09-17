@@ -1223,6 +1223,7 @@ function GastosPage({ user }: { user: any }) {
                                   }}
                                   placeholder="1"
                                   min="1"
+                                  step="1"
                                   required
                                 />
                               </div>
@@ -1251,17 +1252,9 @@ function GastosPage({ user }: { user: any }) {
                                   Monto Estimado *
                                 </label>
                                 <input
-                                  type="text"
-                                  value={bien.monto_estimado ? new Intl.NumberFormat('es-MX', {
-                                    style: 'currency',
-                                    currency: 'MXN',
-                                    minimumFractionDigits: 2
-                                  }).format(parseFloat(bien.monto_estimado) || 0) : ''}
-                                  onChange={(e) => {
-                                    // Extraer solo números del valor formateado
-                                    const valorNumerico = e.target.value.replace(/[^0-9.]/g, '')
-                                    actualizarBien(bien.id, 'monto_estimado', valorNumerico)
-                                  }}
+                                  type="number"
+                                  value={bien.monto_estimado}
+                                  onChange={(e) => actualizarBien(bien.id, 'monto_estimado', e.target.value)}
                                   style={{
                                     width: '100%',
                                     padding: '8px',
@@ -1269,7 +1262,9 @@ function GastosPage({ user }: { user: any }) {
                                     borderRadius: '6px',
                                     fontSize: '14px'
                                   }}
-                                  placeholder="$0.00"
+                                  placeholder="0.00"
+                                  step="0.01"
+                                  min="0"
                                   required
                                 />
                               </div>
