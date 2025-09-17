@@ -344,6 +344,7 @@ function App() {
 // Componente de Gastos con base de datos
 function GastosPage({ user }: { user: any }) {
   const [gastos, setGastos] = useState<Gasto[]>([])
+  const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [centrosCosto, setCentrosCosto] = useState<any[]>([])
@@ -430,8 +431,9 @@ function GastosPage({ user }: { user: any }) {
     setLoading(true)
     try {
       console.log('🚀 Iniciando carga de datos...')
-      const [gastosData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData, proveedoresData, cuentasData] = await Promise.all([
+      const [gastosData, solicitudesData, centrosCostoData, clasifInicialesData, clasifFinanzasData, empresasData, proveedoresData, cuentasData] = await Promise.all([
         gastosService.getGastos(),
+        solicitudesCompraService.getSolicitudes(),
         centrosCostoService.getCentrosCosto(),
         clasificacionesService.getClasificacionesIniciales(),
         clasificacionesService.getClasificacionesFinanzas(),
@@ -441,6 +443,7 @@ function GastosPage({ user }: { user: any }) {
       ])
       console.log('✅ Datos cargados exitosamente')
       setGastos(gastosData)
+      setSolicitudes(solicitudesData)
       setCentrosCosto(centrosCostoData)
       setClasificacionesIniciales(clasifInicialesData)
       setClasificacionesFinanzas(clasifFinanzasData)
@@ -491,8 +494,17 @@ function GastosPage({ user }: { user: any }) {
         
         console.log('Solicitud guardada:', resultado)
         
+        // Recargar las solicitudes
+        await cargarDatos()
+        
         // Mostrar mensaje de éxito
-        alert(`Solicitud de compra creada exitosamente\nFolio: ${folioGenerado}\nFecha: ${fechaActual}\nTotal: $${calcularTotal().toFixed(2)}`)
+        const totalFormateado = new Intl.NumberFormat('es-MX', {
+          style: 'currency',
+          currency: 'MXN',
+          minimumFractionDigits: 2
+        }).format(calcularTotal())
+        
+        alert(`Solicitud de compra creada exitosamente\nFolio: ${folioGenerado}\nFecha: ${fechaActual}\nTotal: ${totalFormateado}`)
         
         // Resetear formulario
         setNuevaSolicitud({
@@ -622,15 +634,114 @@ function GastosPage({ user }: { user: any }) {
 
               <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', padding: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#fef3c7' }}>
+                    <FileText style={{ height: '24px', width: '24px', color: '#f59e0b' }} />
+                  </div>
+                  <div style={{ marginLeft: '16px' }}>
+                    <p style={{ fontSize: '14px', fontWeight: '500', color: '#4b5563' }}>Solicitudes</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#f59e0b' }}>{solicitudes.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
                   <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#dcfce7' }}>
                     <span style={{ fontSize: '24px' }}>💰</span>
                   </div>
                   <div style={{ marginLeft: '16px' }}>
                     <p style={{ fontSize: '14px', fontWeight: '500', color: '#4b5563' }}>Monto Total</p>
-                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#16a34a' }}>${totalGastos.toFixed(2)}</p>
+                    <p style={{ fontSize: '24px', fontWeight: '600', color: '#16a34a' }}>
+                      {new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: 'MXN',
+                        minimumFractionDigits: 2
+                      }).format(totalGastos)}
+                    </p>
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Lista de solicitudes */}
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', marginBottom: '32px' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+                  Solicitudes de Compra ({solicitudes.length})
+                </h2>
+              </div>
+              
+              {solicitudes.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center' }}>
+                  <FileText style={{ height: '48px', width: '48px', color: '#9ca3af', margin: '0 auto 16px' }} />
+                  <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#111827', marginBottom: '8px' }}>
+                    No hay solicitudes registradas
+                  </h3>
+                  <p style={{ color: '#6b7280' }}>
+                    Comienza agregando tu primera solicitud usando el botón "Nueva Solicitud de Compra"
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {solicitudes.map((solicitud) => (
+                    <div key={solicitud.id} style={{ padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
+                      <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#111827' }}>
+                              {solicitud.folio}
+                            </h3>
+                            <span style={{ 
+                              padding: '4px 8px', 
+                              borderRadius: '6px', 
+                              fontSize: '12px', 
+                              fontWeight: '500',
+                              backgroundColor: solicitud.status_autorizacion === 'Aprobado' ? '#dcfce7' : 
+                                           solicitud.status_autorizacion === 'Rechazado' ? '#fee2e2' : '#fef3c7',
+                              color: solicitud.status_autorizacion === 'Aprobado' ? '#16a34a' : 
+                                     solicitud.status_autorizacion === 'Rechazado' ? '#dc2626' : '#f59e0b'
+                            }}>
+                              {solicitud.status_autorizacion}
+                            </span>
+                          </div>
+                          
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>👤</span>
+                              {solicitud.solicitante}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>📅</span>
+                              {new Date(solicitud.fecha_solicitud).toLocaleDateString('es-ES')}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>🏢</span>
+                              {solicitud.empresa_generadora}
+                            </div>
+                          </div>
+                          
+                          <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                            <p><strong>Proyecto:</strong> {solicitud.proyecto}</p>
+                            <p><strong>Bienes:</strong> {solicitud.bienes_solicitud?.length || 0} artículo(s)</p>
+                          </div>
+                        </div>
+                        
+                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div>
+                            <div style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>
+                              {new Intl.NumberFormat('es-MX', {
+                                style: 'currency',
+                                currency: 'MXN',
+                                minimumFractionDigits: 2
+                              }).format(solicitud.total_estimado || 0)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Lista de gastos */}
@@ -1140,9 +1251,17 @@ function GastosPage({ user }: { user: any }) {
                                   Monto Estimado *
                                 </label>
                                 <input
-                                  type="number"
-                                  value={bien.monto_estimado}
-                                  onChange={(e) => actualizarBien(bien.id, 'monto_estimado', e.target.value)}
+                                  type="text"
+                                  value={bien.monto_estimado ? new Intl.NumberFormat('es-MX', {
+                                    style: 'currency',
+                                    currency: 'MXN',
+                                    minimumFractionDigits: 2
+                                  }).format(parseFloat(bien.monto_estimado) || 0) : ''}
+                                  onChange={(e) => {
+                                    // Extraer solo números del valor formateado
+                                    const valorNumerico = e.target.value.replace(/[^0-9.]/g, '')
+                                    actualizarBien(bien.id, 'monto_estimado', valorNumerico)
+                                  }}
                                   style={{
                                     width: '100%',
                                     padding: '8px',
@@ -1150,9 +1269,7 @@ function GastosPage({ user }: { user: any }) {
                                     borderRadius: '6px',
                                     fontSize: '14px'
                                   }}
-                                  placeholder="0.00"
-                                  step="0.01"
-                                  min="0"
+                                  placeholder="$0.00"
                                   required
                                 />
                               </div>
@@ -1191,7 +1308,11 @@ function GastosPage({ user }: { user: any }) {
                         textAlign: 'center'
                       }}>
                         <span style={{ fontSize: '16px', fontWeight: '600' }}>
-                          Total Estimado: ${calcularTotal().toFixed(2)}
+                          Total Estimado: {new Intl.NumberFormat('es-MX', {
+                            style: 'currency',
+                            currency: 'MXN',
+                            minimumFractionDigits: 2
+                          }).format(calcularTotal())}
                         </span>
                       </div>
                     </div>
