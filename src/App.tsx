@@ -372,6 +372,14 @@ function GastosPage({ user }: { user: any }) {
     monto_estimado: '',
     moneda: 'MXN'
   }])
+  
+  // Estado para modal de autorización
+  const [modalAutorizacion, setModalAutorizacion] = useState({
+    abierto: false,
+    solicitudId: '',
+    accion: '',
+    observacion: ''
+  })
 
   // Actualizar el solicitante cuando cambie el usuario
   useEffect(() => {
@@ -420,6 +428,50 @@ function GastosPage({ user }: { user: any }) {
       const monto = parseFloat(bien.monto_estimado) || 0
       return total + monto
     }, 0)
+  }
+
+  // Funciones para autorización
+  const abrirModalAutorizacion = (solicitudId: string, accion: string) => {
+    setModalAutorizacion({
+      abierto: true,
+      solicitudId,
+      accion,
+      observacion: ''
+    })
+  }
+
+  const cerrarModalAutorizacion = () => {
+    setModalAutorizacion({
+      abierto: false,
+      solicitudId: '',
+      accion: '',
+      observacion: ''
+    })
+  }
+
+  const procesarAutorizacion = async () => {
+    try {
+      const autorizacionData = {
+        status: modalAutorizacion.accion,
+        autorizado_por: user?.email || 'Usuario',
+        observacion: modalAutorizacion.observacion
+      }
+
+      await solicitudesCompraService.actualizarAutorizacion(modalAutorizacion.solicitudId, autorizacionData)
+      
+      // Recargar las solicitudes
+      await cargarDatos()
+      
+      // Cerrar modal
+      cerrarModalAutorizacion()
+      
+      // Mostrar mensaje de éxito
+      alert(`Solicitud ${modalAutorizacion.accion.toLowerCase()} exitosamente`)
+      
+    } catch (error) {
+      console.error('Error al procesar autorización:', error)
+      alert('Error al procesar la autorización. Por favor intenta de nuevo.')
+    }
   }
 
   // Cargar datos al montar el componente
@@ -736,6 +788,54 @@ function GastosPage({ user }: { user: any }) {
                               }).format(solicitud.total_estimado || 0)}
                             </div>
                           </div>
+                          
+                          {/* Botones de acción para autorización */}
+                          {solicitud.status_autorizacion === 'Pendiente' && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => abrirModalAutorizacion(solicitud.id, 'Aprobado')}
+                                style={{
+                                  padding: '8px 16px',
+                                  backgroundColor: '#16a34a',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✅ Aprobar
+                              </button>
+                              <button
+                                onClick={() => abrirModalAutorizacion(solicitud.id, 'Rechazado')}
+                                style={{
+                                  padding: '8px 16px',
+                                  backgroundColor: '#dc2626',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: '500',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ❌ Rechazar
+                              </button>
+                            </div>
+                          )}
+                          
+                          {/* Estado ya procesado */}
+                          {solicitud.status_autorizacion !== 'Pendiente' && (
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                              {solicitud.status_autorizacion === 'Aprobado' ? '✅ Aprobado' : '❌ Rechazado'}
+                              {solicitud.fecha_autorizacion && (
+                                <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                                  {new Date(solicitud.fecha_autorizacion).toLocaleDateString('es-ES')}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1353,6 +1453,102 @@ function GastosPage({ user }: { user: any }) {
           </div>
         )}
       </main>
+
+      {/* Modal de Autorización */}
+      {modalAutorizacion.abierto && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
+                {modalAutorizacion.accion === 'Aprobado' ? '✅ Aprobar Solicitud' : '❌ Rechazar Solicitud'}
+              </h3>
+              <p style={{ fontSize: '14px', color: '#6b7280' }}>
+                {modalAutorizacion.accion === 'Aprobado' 
+                  ? '¿Estás seguro de que deseas aprobar esta solicitud de compra?'
+                  : '¿Estás seguro de que deseas rechazar esta solicitud de compra?'
+                }
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                Observaciones {modalAutorizacion.accion === 'Rechazado' ? '*' : '(Opcional)'}
+              </label>
+              <textarea
+                value={modalAutorizacion.observacion}
+                onChange={(e) => setModalAutorizacion(prev => ({ ...prev, observacion: e.target.value }))}
+                placeholder={modalAutorizacion.accion === 'Rechazado' 
+                  ? 'Explica el motivo del rechazo...'
+                  : 'Agrega comentarios adicionales...'
+                }
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  minHeight: '80px',
+                  resize: 'vertical'
+                }}
+                required={modalAutorizacion.accion === 'Rechazado'}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={cerrarModalAutorizacion}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={procesarAutorizacion}
+                disabled={modalAutorizacion.accion === 'Rechazado' && !modalAutorizacion.observacion.trim()}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: modalAutorizacion.accion === 'Aprobado' ? '#16a34a' : '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: modalAutorizacion.accion === 'Rechazado' && !modalAutorizacion.observacion.trim() ? 'not-allowed' : 'pointer',
+                  opacity: modalAutorizacion.accion === 'Rechazado' && !modalAutorizacion.observacion.trim() ? 0.5 : 1
+                }}
+              >
+                {modalAutorizacion.accion === 'Aprobado' ? 'Aprobar' : 'Rechazar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
