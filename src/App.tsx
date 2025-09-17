@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -357,18 +357,20 @@ function GastosPage({ user }: { user: any }) {
     centro_costo: '',
     proyecto: '',
     clasificacion_inicial: '',
-    clasificacion_finanzas: '',
     mes_servicio: '',
     mes_pago: '',
     empresa_generadora: '',
     empresa_pagadora: '',
-    proveedor: '',
-    codigo_contable: '',
-    monto_estimado: '',
-    moneda: 'MXN',
-    observaciones: '',
-    status_aprobacion: 'Pendiente'
+    codigo_contable: ''
   })
+
+  const [bienes, setBienes] = useState([{
+    id: 1,
+    cantidad: '',
+    descripcion: '',
+    monto_estimado: '',
+    moneda: 'MXN'
+  }])
 
   // Actualizar el solicitante cuando cambie el usuario
   useEffect(() => {
@@ -387,6 +389,37 @@ function GastosPage({ user }: { user: any }) {
       codigo_contable: ''
     }))
   }, [nuevaSolicitud.empresa_generadora])
+
+  // Funciones para manejar bienes
+  const agregarBien = () => {
+    const nuevoId = Math.max(...bienes.map(b => b.id), 0) + 1
+    setBienes([{
+      id: nuevoId,
+      cantidad: '',
+      descripcion: '',
+      monto_estimado: '',
+      moneda: 'MXN'
+    }, ...bienes])
+  }
+
+  const eliminarBien = (id: number) => {
+    if (bienes.length > 1) {
+      setBienes(bienes.filter(bien => bien.id !== id))
+    }
+  }
+
+  const actualizarBien = (id: number, campo: string, valor: string) => {
+    setBienes(bienes.map(bien => 
+      bien.id === id ? { ...bien, [campo]: valor } : bien
+    ))
+  }
+
+  const calcularTotal = () => {
+    return bienes.reduce((total, bien) => {
+      const monto = parseFloat(bien.monto_estimado) || 0
+      return total + monto
+    }, 0)
+  }
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -422,53 +455,70 @@ function GastosPage({ user }: { user: any }) {
   }
 
   const agregarSolicitud = async () => {
-    if (nuevaSolicitud.solicitante) {
-      // Generar folio automáticamente basado en timestamp
-      const folioGenerado = `SC-${Date.now()}`
-      // Generar fecha automáticamente (fecha actual)
-      const fechaActual = new Date().toISOString().split('T')[0]
-      
-      // Datos de la solicitud preparados para guardar
-      console.log('Solicitud de compra:', {
-        folio: folioGenerado,
-        fecha_solicitud: fechaActual,
-        solicitante: nuevaSolicitud.solicitante,
-        centro_costo: nuevaSolicitud.centro_costo,
-        proyecto: nuevaSolicitud.proyecto,
-        clasificacion_inicial: nuevaSolicitud.clasificacion_inicial,
-        clasificacion_finanzas: nuevaSolicitud.clasificacion_finanzas,
-        mes_servicio: nuevaSolicitud.mes_servicio,
-        mes_pago: nuevaSolicitud.mes_pago,
-        empresa_generadora: nuevaSolicitud.empresa_generadora,
-        empresa_pagadora: nuevaSolicitud.empresa_pagadora,
-        proveedor: nuevaSolicitud.proveedor,
-        codigo_contable: nuevaSolicitud.codigo_contable,
-        monto_estimado: parseFloat(nuevaSolicitud.monto_estimado) || 0,
-        moneda: nuevaSolicitud.moneda,
-        observaciones: nuevaSolicitud.observaciones,
-        status_aprobacion: nuevaSolicitud.status_aprobacion
-      })
-      
-      // Mostrar mensaje de éxito con el folio generado
-      alert(`Solicitud de compra creada exitosamente\nFolio: ${folioGenerado}\nFecha: ${fechaActual}`)
-      setNuevaSolicitud({
-        solicitante: '',
-        centro_costo: '',
-        proyecto: '',
-        clasificacion_inicial: '',
-        clasificacion_finanzas: '',
-        mes_servicio: '',
-        mes_pago: '',
-        empresa_generadora: '',
-        empresa_pagadora: '',
-        proveedor: '',
-        codigo_contable: '',
-        monto_estimado: '',
-        moneda: 'MXN',
-        observaciones: '',
-        status_aprobacion: 'Pendiente'
-      })
-      setShowForm(false)
+    if (nuevaSolicitud.solicitante && bienes.length > 0) {
+      try {
+        // Generar folio automáticamente basado en timestamp
+        const folioGenerado = `SC-${Date.now()}`
+        // Generar fecha automáticamente (fecha actual)
+        const fechaActual = new Date().toISOString().split('T')[0]
+        
+        // Preparar datos de la solicitud
+        const solicitudData = {
+          folio: folioGenerado,
+          fecha_solicitud: fechaActual,
+          solicitante: nuevaSolicitud.solicitante,
+          centro_costo: nuevaSolicitud.centro_costo,
+          proyecto: nuevaSolicitud.proyecto,
+          clasificacion_inicial: nuevaSolicitud.clasificacion_inicial,
+          mes_servicio: nuevaSolicitud.mes_servicio,
+          mes_pago: nuevaSolicitud.mes_pago,
+          empresa_generadora: nuevaSolicitud.empresa_generadora,
+          empresa_pagadora: nuevaSolicitud.empresa_pagadora,
+          codigo_contable: nuevaSolicitud.codigo_contable,
+          total_estimado: calcularTotal()
+        }
+        
+        // Preparar datos de los bienes
+        const bienesData = bienes.map(bien => ({
+          cantidad: parseInt(bien.cantidad) || 1,
+          descripcion: bien.descripcion,
+          monto_estimado: parseFloat(bien.monto_estimado) || 0,
+          moneda: bien.moneda
+        }))
+        
+        // Guardar en la base de datos
+        const resultado = await solicitudesCompraService.crearSolicitud(solicitudData, bienesData)
+        
+        console.log('Solicitud guardada:', resultado)
+        
+        // Mostrar mensaje de éxito
+        alert(`Solicitud de compra creada exitosamente\nFolio: ${folioGenerado}\nFecha: ${fechaActual}\nTotal: $${calcularTotal().toFixed(2)}`)
+        
+        // Resetear formulario
+        setNuevaSolicitud({
+          solicitante: '',
+          centro_costo: '',
+          proyecto: '',
+          clasificacion_inicial: '',
+          mes_servicio: '',
+          mes_pago: '',
+          empresa_generadora: '',
+          empresa_pagadora: '',
+          codigo_contable: ''
+        })
+        setBienes([{
+          id: 1,
+          cantidad: '',
+          descripcion: '',
+          monto_estimado: '',
+          moneda: 'MXN'
+        }])
+        setShowForm(false)
+        
+      } catch (error) {
+        console.error('Error al crear solicitud:', error)
+        alert('Error al crear la solicitud. Por favor intenta de nuevo.')
+      }
     }
   }
 
@@ -693,7 +743,7 @@ function GastosPage({ user }: { user: any }) {
                     </button>
                   </div>
                   
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {/* Información de fecha automática */}
                     <div style={{ 
                       padding: '12px', 
@@ -707,368 +757,446 @@ function GastosPage({ user }: { user: any }) {
                       </span>
                     </div>
 
-                    {/* Fila 1: Solicitante */}
-                    <div>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                        Solicitante *
-                      </label>
-                      <input
-                        type="text"
-                        value={nuevaSolicitud.solicitante}
-                        readOnly
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '8px',
-                          fontSize: '14px',
-                          backgroundColor: '#f9fafb',
-                          color: '#6b7280'
-                        }}
-                        placeholder="Email del usuario logueado"
-                      />
-                    </div>
+                    {/* SECCIÓN GENERAL */}
+                    <div style={{ 
+                      padding: '20px', 
+                      backgroundColor: '#f8fafc', 
+                      borderRadius: '12px', 
+                      border: '2px solid #e2e8f0' 
+                    }}>
+                      <h3 style={{ 
+                        fontSize: '18px', 
+                        fontWeight: '600', 
+                        color: '#1e293b', 
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        📋 Información General
+                      </h3>
 
-                    {/* Fila 2: Centro de Costo y Proyecto */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Centro de Costo
-                        </label>
-                        <select
-                          value={nuevaSolicitud.centro_costo}
-                          onChange={(e) => {
-                            const codigoSeleccionado = e.target.value
-                            const centroSeleccionado = centrosCosto.find(centro => centro.codigo === codigoSeleccionado)
-                            setNuevaSolicitud({
-                              ...nuevaSolicitud, 
-                              centro_costo: codigoSeleccionado,
-                              proyecto: centroSeleccionado ? centroSeleccionado.nombre_actual : ''
-                            })
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Seleccionar centro de costo</option>
-                          {centrosCosto.map((centro) => (
-                            <option key={centro.codigo} value={centro.codigo}>
-                              {centro.codigo}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Proyecto (Nombre del Centro)
-                        </label>
-                        <input
-                          type="text"
-                          value={nuevaSolicitud.proyecto}
-                          readOnly
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            backgroundColor: '#f9fafb',
-                            color: '#6b7280'
-                          }}
-                          placeholder="Selecciona un centro de costo"
-                        />
-                      </div>
-                    </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Solicitante */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                            Solicitante *
+                          </label>
+                          <input
+                            type="text"
+                            value={nuevaSolicitud.solicitante}
+                            readOnly
+                            style={{
+                              width: '100%',
+                              padding: '12px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '8px',
+                              fontSize: '14px',
+                              backgroundColor: '#f9fafb',
+                              color: '#6b7280'
+                            }}
+                            placeholder="Email del usuario logueado"
+                          />
+                        </div>
 
+                        {/* Centro de Costo y Proyecto */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                              Centro de Costo
+                            </label>
+                            <select
+                              value={nuevaSolicitud.centro_costo}
+                              onChange={(e) => {
+                                const codigoSeleccionado = e.target.value
+                                const centroSeleccionado = centrosCosto.find(centro => centro.codigo === codigoSeleccionado)
+                                setNuevaSolicitud({
+                                  ...nuevaSolicitud, 
+                                  centro_costo: codigoSeleccionado,
+                                  proyecto: centroSeleccionado ? centroSeleccionado.nombre_actual : ''
+                                })
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '8px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">Seleccionar centro de costo</option>
+                              {centrosCosto.map((centro) => (
+                                <option key={centro.codigo} value={centro.codigo}>
+                                  {centro.codigo}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                              Proyecto (Nombre del Centro)
+                            </label>
+                            <input
+                              type="text"
+                              value={nuevaSolicitud.proyecto}
+                              readOnly
+                              style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                backgroundColor: '#f9fafb',
+                                color: '#6b7280'
+                              }}
+                              placeholder="Selecciona un centro de costo"
+                            />
+                          </div>
+                        </div>
 
-                    {/* Fila 3: Clasificaciones */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Clasificación Inicial
-                        </label>
-                        <select
-                          value={nuevaSolicitud.clasificacion_inicial}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, clasificacion_inicial: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona clasificación</option>
-                          {clasificacionesIniciales.map((clasificacion) => (
-                            <option key={clasificacion.codigo} value={clasificacion.nombre}>
-                              {clasificacion.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Clasificación Finanzas
-                        </label>
-                        <select
-                          value={nuevaSolicitud.clasificacion_finanzas}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, clasificacion_finanzas: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona clasificación</option>
-                          {clasificacionesFinanzas.map((clasificacion) => (
-                            <option key={clasificacion.codigo} value={clasificacion.nombre}>
-                              {clasificacion.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Fila 4: Meses */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Mes de Servicio
-                        </label>
-                        <select
-                          value={nuevaSolicitud.mes_servicio}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, mes_servicio: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona mes</option>
-                          <option value="Enero">Enero</option>
-                          <option value="Febrero">Febrero</option>
-                          <option value="Marzo">Marzo</option>
-                          <option value="Abril">Abril</option>
-                          <option value="Mayo">Mayo</option>
-                          <option value="Junio">Junio</option>
-                          <option value="Julio">Julio</option>
-                          <option value="Agosto">Agosto</option>
-                          <option value="Septiembre">Septiembre</option>
-                          <option value="Octubre">Octubre</option>
-                          <option value="Noviembre">Noviembre</option>
-                          <option value="Diciembre">Diciembre</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Mes de Pago
-                        </label>
-                        <select
-                          value={nuevaSolicitud.mes_pago}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, mes_pago: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona mes</option>
-                          <option value="Enero">Enero</option>
-                          <option value="Febrero">Febrero</option>
-                          <option value="Marzo">Marzo</option>
-                          <option value="Abril">Abril</option>
-                          <option value="Mayo">Mayo</option>
-                          <option value="Junio">Junio</option>
-                          <option value="Julio">Julio</option>
-                          <option value="Agosto">Agosto</option>
-                          <option value="Septiembre">Septiembre</option>
-                          <option value="Octubre">Octubre</option>
-                          <option value="Noviembre">Noviembre</option>
-                          <option value="Diciembre">Diciembre</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Fila 5: Empresas */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Empresa Generadora
-                        </label>
-                        <select
-                          value={nuevaSolicitud.empresa_generadora}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, empresa_generadora: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona empresa generadora</option>
-                          {empresasGeneradoras.map((empresa) => (
-                            <option key={empresa.codigo} value={empresa.nombre}>
-                              {empresa.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Empresa Pagadora
-                        </label>
-                        <select
-                          value={nuevaSolicitud.empresa_pagadora}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, empresa_pagadora: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona empresa pagadora</option>
-                          {empresasGeneradoras.map((empresa) => (
-                            <option key={empresa.codigo} value={empresa.nombre}>
-                              {empresa.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Fila 6: Proveedor y Código Contable */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Proveedor
-                        </label>
-                        <select
-                          value={nuevaSolicitud.proveedor}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, proveedor: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona proveedor</option>
-                          {proveedores.map((proveedor) => (
-                            <option key={proveedor.codigo} value={proveedor.nombre}>
-                              {proveedor.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Código Contable
-                        </label>
-                        <select
-                          value={nuevaSolicitud.codigo_contable}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, codigo_contable: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="">Selecciona código contable</option>
-                          {(() => {
-                            const cuentasFiltradas = cuentasContables.filter(cuenta => cuenta.empresa === nuevaSolicitud.empresa_generadora);
-                            console.log('Empresa seleccionada:', nuevaSolicitud.empresa_generadora);
-                            console.log('Total cuentas contables:', cuentasContables.length);
-                            console.log('Cuentas filtradas:', cuentasFiltradas.length);
-                            console.log('Primeras 5 cuentas filtradas:', cuentasFiltradas.slice(0, 5));
-                            return cuentasFiltradas.map((cuenta) => (
-                              <option key={`${cuenta.empresa}-${cuenta.codigo}`} value={cuenta.codigo}>
-                                {cuenta.codigo} - {cuenta.nombre}
+                        {/* Clasificación Inicial */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                            Clasificación Inicial
+                          </label>
+                          <select
+                            value={nuevaSolicitud.clasificacion_inicial}
+                            onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, clasificacion_inicial: e.target.value})}
+                            style={{
+                              width: '100%',
+                              padding: '12px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '8px',
+                              fontSize: '14px'
+                            }}
+                          >
+                            <option value="">Selecciona clasificación</option>
+                            {clasificacionesIniciales.map((clasificacion) => (
+                              <option key={clasificacion.codigo} value={clasificacion.nombre}>
+                                {clasificacion.nombre}
                               </option>
-                            ));
-                          })()}
-                        </select>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Meses */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                              Mes de Servicio
+                            </label>
+                            <select
+                              value={nuevaSolicitud.mes_servicio}
+                              onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, mes_servicio: e.target.value})}
+                              style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '8px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">Selecciona mes</option>
+                              <option value="Enero">Enero</option>
+                              <option value="Febrero">Febrero</option>
+                              <option value="Marzo">Marzo</option>
+                              <option value="Abril">Abril</option>
+                              <option value="Mayo">Mayo</option>
+                              <option value="Junio">Junio</option>
+                              <option value="Julio">Julio</option>
+                              <option value="Agosto">Agosto</option>
+                              <option value="Septiembre">Septiembre</option>
+                              <option value="Octubre">Octubre</option>
+                              <option value="Noviembre">Noviembre</option>
+                              <option value="Diciembre">Diciembre</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                              Mes de Pago
+                            </label>
+                            <select
+                              value={nuevaSolicitud.mes_pago}
+                              onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, mes_pago: e.target.value})}
+                              style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '8px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">Selecciona mes</option>
+                              <option value="Enero">Enero</option>
+                              <option value="Febrero">Febrero</option>
+                              <option value="Marzo">Marzo</option>
+                              <option value="Abril">Abril</option>
+                              <option value="Mayo">Mayo</option>
+                              <option value="Junio">Junio</option>
+                              <option value="Julio">Julio</option>
+                              <option value="Agosto">Agosto</option>
+                              <option value="Septiembre">Septiembre</option>
+                              <option value="Octubre">Octubre</option>
+                              <option value="Noviembre">Noviembre</option>
+                              <option value="Diciembre">Diciembre</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Empresas */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                              Empresa Generadora
+                            </label>
+                            <select
+                              value={nuevaSolicitud.empresa_generadora}
+                              onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, empresa_generadora: e.target.value})}
+                              style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '8px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">Selecciona empresa generadora</option>
+                              {empresasGeneradoras.map((empresa) => (
+                                <option key={empresa.codigo} value={empresa.nombre}>
+                                  {empresa.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                              Empresa Pagadora
+                            </label>
+                            <select
+                              value={nuevaSolicitud.empresa_pagadora}
+                              onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, empresa_pagadora: e.target.value})}
+                              style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '8px',
+                                fontSize: '14px'
+                              }}
+                            >
+                              <option value="">Selecciona empresa pagadora</option>
+                              {empresasGeneradoras.map((empresa) => (
+                                <option key={empresa.codigo} value={empresa.nombre}>
+                                  {empresa.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Código Contable */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                            Código Contable
+                          </label>
+                          <select
+                            value={nuevaSolicitud.codigo_contable}
+                            onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, codigo_contable: e.target.value})}
+                            style={{
+                              width: '100%',
+                              padding: '12px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '8px',
+                              fontSize: '14px'
+                            }}
+                          >
+                            <option value="">Selecciona código contable</option>
+                            {(() => {
+                              const cuentasFiltradas = cuentasContables.filter(cuenta => cuenta.empresa === nuevaSolicitud.empresa_generadora);
+                              return cuentasFiltradas.map((cuenta) => (
+                                <option key={`${cuenta.empresa}-${cuenta.codigo}`} value={cuenta.codigo}>
+                                  {cuenta.codigo} - {cuenta.nombre}
+                                </option>
+                              ));
+                            })()}
+                          </select>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Fila 7: Monto y Moneda */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Monto Estimado
-                        </label>
-                        <input
-                          type="number"
-                          value={nuevaSolicitud.monto_estimado}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, monto_estimado: e.target.value})}
+                    {/* SECCIÓN DETALLE - BIENES */}
+                    <div style={{ 
+                      padding: '20px', 
+                      backgroundColor: '#fefce8', 
+                      borderRadius: '12px', 
+                      border: '2px solid #fde047' 
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3 style={{ 
+                          fontSize: '18px', 
+                          fontWeight: '600', 
+                          color: '#1e293b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          🛒 Detalle de Bienes
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={agregarBien}
                           style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            padding: '8px 16px',
                             borderRadius: '8px',
-                            fontSize: '14px'
-                          }}
-                          placeholder="0.00"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                          Moneda
-                        </label>
-                        <select
-                          value={nuevaSolicitud.moneda}
-                          onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, moneda: e.target.value})}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px'
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
                           }}
                         >
-                          <option value="MXN">MXN</option>
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                        </select>
+                          ➕ Agregar Bien
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {bienes.map((bien, index) => (
+                          <div key={bien.id} style={{
+                            padding: '16px',
+                            backgroundColor: 'white',
+                            borderRadius: '8px',
+                            border: '1px solid #e5e7eb',
+                            position: 'relative'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                              <h4 style={{ fontSize: '16px', fontWeight: '500', color: '#374151', margin: 0 }}>
+                                Bien #{bienes.length - index}
+                              </h4>
+                              {bienes.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarBien(bien.id)}
+                                  style={{
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  🗑️ Eliminar
+                                </button>
+                              )}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '12px' }}>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                                  Cantidad *
+                                </label>
+                                <input
+                                  type="number"
+                                  value={bien.cantidad}
+                                  onChange={(e) => actualizarBien(bien.id, 'cantidad', e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                  }}
+                                  placeholder="1"
+                                  min="1"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                                  Descripción del Bien *
+                                </label>
+                                <textarea
+                                  value={bien.descripcion}
+                                  onChange={(e) => actualizarBien(bien.id, 'descripcion', e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    minHeight: '60px',
+                                    resize: 'vertical'
+                                  }}
+                                  placeholder="Describe el bien o servicio. Puedes incluir URLs de referencia, enlaces a catálogos, especificaciones técnicas, etc."
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                                  Monto Estimado *
+                                </label>
+                                <input
+                                  type="number"
+                                  value={bien.monto_estimado}
+                                  onChange={(e) => actualizarBien(bien.id, 'monto_estimado', e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                  }}
+                                  placeholder="0.00"
+                                  step="0.01"
+                                  min="0"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                                  Moneda
+                                </label>
+                                <select
+                                  value={bien.moneda}
+                                  onChange={(e) => actualizarBien(bien.id, 'moneda', e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                  }}
+                                >
+                                  <option value="MXN">MXN</option>
+                                  <option value="USD">USD</option>
+                                  <option value="EUR">EUR</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Total */}
+                      <div style={{
+                        marginTop: '16px',
+                        padding: '12px',
+                        backgroundColor: '#1e293b',
+                        color: 'white',
+                        borderRadius: '8px',
+                        textAlign: 'center'
+                      }}>
+                        <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                          Total Estimado: ${calcularTotal().toFixed(2)}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Fila 8: Observaciones */}
-                    <div>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                        Observaciones (USO DE TESORERÍA)
-                      </label>
-                      <textarea
-                        value={nuevaSolicitud.observaciones}
-                        onChange={(e) => setNuevaSolicitud({...nuevaSolicitud, observaciones: e.target.value})}
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '8px',
-                          fontSize: '14px',
-                          minHeight: '80px',
-                          resize: 'vertical'
-                        }}
-                        placeholder="Observaciones adicionales"
-                      />
-                    </div>
+
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                       <button

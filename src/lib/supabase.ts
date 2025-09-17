@@ -104,48 +104,82 @@ export const proveedoresService = {
 
 // Servicios de cuentas contables
 export const cuentasContablesService = {
-  // Obtener todas las cuentas contables activas
+  // Obtener todas las cuentas contables activas con paginación
   async getCuentasContables() {
     try {
       console.log('🔍 Obteniendo cuentas contables...')
-      const { data, error } = await supabase
-        .from('cuentas_contables')
-        .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
-        .eq('activo', true)
-        .order('empresa, codigo')
-        .limit(5000)
+      console.log('🔧 CON PAGINACIÓN - VERSIÓN CORREGIDA')
       
-      if (error) {
-        console.error('❌ Error en consulta cuentas contables:', error)
-        throw error
+      let allData: any[] = []
+      let from = 0
+      const pageSize = 1000
+      let hasMore = true
+      
+      while (hasMore) {
+        const { data, error, count } = await supabase
+          .from('cuentas_contables')
+          .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat', { count: 'exact' })
+          .eq('activo', true)
+          .order('empresa, codigo')
+          .range(from, from + pageSize - 1)
+        
+        if (error) {
+          console.error('❌ Error en consulta cuentas contables:', error)
+          throw error
+        }
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data]
+          from += pageSize
+          hasMore = data.length === pageSize
+          console.log(`📄 Página cargada: ${data.length} registros (total: ${allData.length})`)
+        } else {
+          hasMore = false
+        }
       }
       
-      console.log('✅ Cuentas contables obtenidas:', data?.length || 0)
-      console.log('📊 Distribución por empresa:', data?.reduce((acc, item) => {
+      console.log('✅ Cuentas contables obtenidas:', allData.length)
+      console.log('📊 Distribución por empresa:', allData.reduce((acc, item) => {
         acc[item.empresa] = (acc[item.empresa] || 0) + 1
         return acc
-      }, {}) || {})
+      }, {}))
       
-      return data
+      return allData
     } catch (error) {
       console.error('❌ Error al obtener cuentas contables:', error)
       return []
     }
   },
 
-  // Obtener cuentas contables por empresa
+  // Obtener cuentas contables por empresa con paginación
   async getCuentasContablesByEmpresa(empresa: string) {
     try {
-      const { data, error } = await supabase
-        .from('cuentas_contables')
-        .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
-        .eq('activo', true)
-        .eq('empresa', empresa)
-        .order('codigo')
-        .limit(5000)
+      let allData: any[] = []
+      let from = 0
+      const pageSize = 1000
+      let hasMore = true
       
-      if (error) throw error
-      return data
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('cuentas_contables')
+          .select('codigo, nombre, empresa, tipo, tipo_2, dig_agr, edo_fin, moneda, seg_neg, rubro_nif, agrupador_sat')
+          .eq('activo', true)
+          .eq('empresa', empresa)
+          .order('codigo')
+          .range(from, from + pageSize - 1)
+        
+        if (error) throw error
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data]
+          from += pageSize
+          hasMore = data.length === pageSize
+        } else {
+          hasMore = false
+        }
+      }
+      
+      return allData
     } catch (error) {
       console.error('Error al obtener cuentas contables por empresa:', error)
       return []
@@ -397,5 +431,109 @@ export const categoriasService = {
     }
     
     return data || []
+  }
+}
+
+// Servicios para solicitudes de compra
+export const solicitudesCompraService = {
+  // Crear nueva solicitud de compra
+  async crearSolicitud(solicitud: any, bienes: any[]) {
+    try {
+      // Crear la solicitud principal
+      const { data: solicitudData, error: solicitudError } = await supabase
+        .from('solicitudes_compra')
+        .insert([solicitud])
+        .select()
+        .single()
+      
+      if (solicitudError) throw solicitudError
+      
+      // Crear los bienes asociados
+      const bienesConSolicitudId = bienes.map(bien => ({
+        ...bien,
+        solicitud_id: solicitudData.id
+      }))
+      
+      const { data: bienesData, error: bienesError } = await supabase
+        .from('bienes_solicitud')
+        .insert(bienesConSolicitudId)
+        .select()
+      
+      if (bienesError) throw bienesError
+      
+      return { solicitud: solicitudData, bienes: bienesData }
+    } catch (error) {
+      console.error('Error al crear solicitud de compra:', error)
+      throw error
+    }
+  },
+
+  // Obtener todas las solicitudes
+  async getSolicitudes() {
+    try {
+      const { data, error } = await supabase
+        .from('solicitudes_compra')
+        .select(`
+          *,
+          bienes_solicitud (*)
+        `)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error al obtener solicitudes:', error)
+      return []
+    }
+  },
+
+  // Actualizar autorización
+  async actualizarAutorizacion(id: string, autorizacion: any) {
+    try {
+      const { data, error } = await supabase
+        .from('solicitudes_compra')
+        .update({
+          status_autorizacion: autorizacion.status,
+          autorizado_por: autorizacion.autorizado_por,
+          fecha_autorizacion: new Date().toISOString(),
+          observacion_autorizacion: autorizacion.observacion
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al actualizar autorización:', error)
+      throw error
+    }
+  },
+
+  // Actualizar finanzas
+  async actualizarFinanzas(id: string, finanzas: any) {
+    try {
+      const { data, error } = await supabase
+        .from('solicitudes_compra')
+        .update({
+          status_finanzas: 'Procesado',
+          clasificacion_finanzas: finanzas.clasificacion,
+          codigo_contable_finanzas: finanzas.codigo_contable,
+          estado_pago: finanzas.estado_pago,
+          evidencia_pago_url: finanzas.evidencia_url,
+          observaciones_finanzas: finanzas.observaciones,
+          procesado_por: finanzas.procesado_por,
+          fecha_procesamiento: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error al actualizar finanzas:', error)
+      throw error
+    }
   }
 }
