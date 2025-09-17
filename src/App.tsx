@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
-import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto } from './lib/supabase'
+import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto, supabase } from './lib/supabase'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
@@ -395,7 +395,8 @@ function GastosPage({ user }: { user: any }) {
     codigo_contable: '',
     estado_pago: '',
     evidencia_url: '',
-    observaciones: ''
+    observaciones: '',
+    archivos: [] as File[]
   })
 
   // Actualizar el solicitante cuando cambie el usuario
@@ -519,7 +520,8 @@ function GastosPage({ user }: { user: any }) {
       codigo_contable: '',
       estado_pago: '',
       evidencia_url: '',
-      observaciones: ''
+      observaciones: '',
+      archivos: []
     })
   }
 
@@ -531,17 +533,74 @@ function GastosPage({ user }: { user: any }) {
       codigo_contable: '',
       estado_pago: '',
       evidencia_url: '',
-      observaciones: ''
+      observaciones: '',
+      archivos: []
     })
+  }
+
+  // Funciones para manejar archivos
+  const manejarArchivos = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const archivos = Array.from(event.target.files || [])
+    setModalFinanzas(prev => ({
+      ...prev,
+      archivos: [...prev.archivos, ...archivos]
+    }))
+  }
+
+  const eliminarArchivo = (index: number) => {
+    setModalFinanzas(prev => ({
+      ...prev,
+      archivos: prev.archivos.filter((_, i) => i !== index)
+    }))
+  }
+
+  const subirArchivos = async (archivos: File[], solicitudId: string) => {
+    const urls: string[] = []
+    
+    for (const archivo of archivos) {
+      try {
+        // Crear nombre único para el archivo
+        const nombreArchivo = `${solicitudId}_${Date.now()}_${archivo.name}`
+        
+        // Subir archivo a Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('evidencias-pago')
+          .upload(nombreArchivo, archivo)
+        
+        if (error) {
+          console.error('Error al subir archivo:', error)
+          continue
+        }
+        
+        // Obtener URL pública del archivo
+        const { data: urlData } = supabase.storage
+          .from('evidencias-pago')
+          .getPublicUrl(nombreArchivo)
+        
+        urls.push(urlData.publicUrl)
+      } catch (error) {
+        console.error('Error al procesar archivo:', error)
+      }
+    }
+    
+    return urls
   }
 
   const procesarFinanzas = async () => {
     try {
+      // Subir archivos si hay alguno
+      let urlsEvidencia = modalFinanzas.evidencia_url ? [modalFinanzas.evidencia_url] : []
+      
+      if (modalFinanzas.archivos.length > 0) {
+        const urlsSubidas = await subirArchivos(modalFinanzas.archivos, modalFinanzas.solicitudId)
+        urlsEvidencia = [...urlsEvidencia, ...urlsSubidas]
+      }
+
       const finanzasData = {
         clasificacion: modalFinanzas.clasificacion,
         codigo_contable: modalFinanzas.codigo_contable,
         estado_pago: modalFinanzas.estado_pago,
-        evidencia_url: modalFinanzas.evidencia_url,
+        evidencia_url: urlsEvidencia.join(', '), // Unir todas las URLs con comas
         observaciones: modalFinanzas.observaciones,
         procesado_por: user?.email || 'Usuario'
       }
@@ -555,7 +614,10 @@ function GastosPage({ user }: { user: any }) {
       cerrarModalFinanzas()
       
       // Mostrar mensaje de éxito
-      alert('Solicitud procesada en finanzas exitosamente')
+      const mensaje = modalFinanzas.archivos.length > 0 
+        ? `Solicitud procesada en finanzas exitosamente. Se subieron ${modalFinanzas.archivos.length} archivo(s).`
+        : 'Solicitud procesada en finanzas exitosamente.'
+      alert(mensaje)
       
     } catch (error) {
       console.error('Error al procesar finanzas:', error)
@@ -1975,10 +2037,10 @@ function GastosPage({ user }: { user: any }) {
                 </select>
               </div>
 
-              {/* Evidencia del Pago */}
+              {/* Evidencia del Pago - URL */}
               <div>
                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
-                  URL de Evidencia del Pago
+                  URL de Evidencia del Pago (Opcional)
                 </label>
                 <input
                   type="url"
@@ -1994,6 +2056,80 @@ function GastosPage({ user }: { user: any }) {
                   }}
                 />
               </div>
+
+              {/* Evidencia del Pago - Archivos */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Subir Archivos de Evidencia
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                  onChange={manejarArchivos}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    backgroundColor: 'white'
+                  }}
+                />
+                <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  Formatos permitidos: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX
+                </p>
+              </div>
+
+              {/* Lista de archivos seleccionados */}
+              {modalFinanzas.archivos.length > 0 && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                    Archivos Seleccionados ({modalFinanzas.archivos.length})
+                  </label>
+                  <div style={{ 
+                    border: '1px solid #e5e7eb', 
+                    borderRadius: '8px', 
+                    padding: '12px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    {modalFinanzas.archivos.map((archivo, index) => (
+                      <div key={index} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        padding: '8px',
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        marginBottom: '8px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '16px' }}>📎</span>
+                          <span style={{ fontSize: '14px', color: '#111827' }}>{archivo.name}</span>
+                          <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                            ({(archivo.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => eliminarArchivo(index)}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#fee2e2',
+                            color: '#dc2626',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕ Eliminar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Observaciones */}
               <div>
