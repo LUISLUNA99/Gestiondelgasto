@@ -3,8 +3,8 @@ import { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
 import { msalConfig, loginRequest } from '../lib/msalConfig';
 import { SharePointService } from '../lib/sharePointService';
 
-// Instancia de MSAL
-const msalInstance = new PublicClientApplication(msalConfig);
+// Instancia de MSAL (se inicializa cuando se necesita)
+let msalInstance: PublicClientApplication | null = null;
 
 export const useMicrosoftGraph = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,6 +17,9 @@ export const useMicrosoftGraph = () => {
   useEffect(() => {
     const initializeMsal = async () => {
       try {
+        if (!msalInstance) {
+          msalInstance = new PublicClientApplication(msalConfig);
+        }
         await msalInstance.initialize();
         
         // Verificar si hay una cuenta activa
@@ -42,6 +45,8 @@ export const useMicrosoftGraph = () => {
   // Obtener token de acceso
   const getAccessToken = async (): Promise<string | null> => {
     try {
+      if (!msalInstance) return null;
+      
       const accounts = msalInstance.getAllAccounts();
       if (accounts.length === 0) return null;
 
@@ -67,6 +72,11 @@ export const useMicrosoftGraph = () => {
   // Iniciar sesión
   const login = async (): Promise<void> => {
     try {
+      if (!msalInstance) {
+        msalInstance = new PublicClientApplication(msalConfig);
+        await msalInstance.initialize();
+      }
+      
       setIsLoading(true);
       const response = await msalInstance.loginPopup(loginRequest);
       
@@ -90,6 +100,8 @@ export const useMicrosoftGraph = () => {
   // Cerrar sesión
   const logout = async (): Promise<void> => {
     try {
+      if (!msalInstance) return;
+      
       await msalInstance.logoutPopup();
       setUser(null);
       setIsAuthenticated(false);

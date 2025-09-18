@@ -2,23 +2,23 @@ import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
 import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto, supabase } from './lib/supabase'
-import { useMicrosoftGraph } from './hooks/useMicrosoftGraph'
+// import { useMicrosoftGraph } from './hooks/useMicrosoftGraph'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   
-  // Hook de Microsoft Graph
-  const {
-    isAuthenticated: isMsAuthenticated,
-    user: msUser,
-    login: msLogin,
-    logout: msLogout,
-    uploadFile: msUploadFile,
-    uploadMultipleFiles: msUploadMultipleFiles,
-    isLoading: msLoading
-  } = useMicrosoftGraph()
+  // Hook de Microsoft Graph (temporalmente deshabilitado)
+  // const {
+  //   isAuthenticated: isMsAuthenticated,
+  //   user: msUser,
+  //   login: msLogin,
+  //   logout: msLogout,
+  //   uploadFile: msUploadFile,
+  //   uploadMultipleFiles: msUploadMultipleFiles,
+  //   isLoading: msLoading
+  // } = useMicrosoftGraph()
   const [loading, setLoading] = useState(true)
   const [loginData, setLoginData] = useState({
     email: 'luis.luna@grupocsi.com',
