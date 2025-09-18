@@ -393,7 +393,7 @@ function App() {
               {currentPage === 'gastos' ? 'Gastos' : 'Solicitudes de Compra'}
             </h1>
             <button
-              onClick={handleLogout}
+              onClick={onLogout}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -415,7 +415,7 @@ function App() {
 
         {/* Contenido de la página */}
         <main>
-          {currentPage === 'gastos' && <GastosPage user={user} />}
+          {currentPage === 'gastos' && <GastosPage user={user} onLogout={handleLogout} />}
           {currentPage === 'solicitudes' && <SolicitudesPage />}
         </main>
       </div>
@@ -424,7 +424,7 @@ function App() {
 }
 
 // Componente de Gastos con base de datos
-function GastosPage({ user }: { user: any }) {
+function GastosPage({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -969,7 +969,7 @@ function GastosPage({ user }: { user: any }) {
                 </span>
               </div>
               <button
-                onClick={handleLogout}
+                onClick={onLogout}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
