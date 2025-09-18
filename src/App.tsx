@@ -225,7 +225,7 @@ function App() {
             </button>
           </form>
           
-          {/* Botón de Microsoft */}
+          {/* Botón de Microsoft - Temporalmente deshabilitado */}
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
             <div style={{ 
               margin: '20px 0', 
@@ -235,36 +235,34 @@ function App() {
               O continúa con
             </div>
             <button
-              onClick={msLogin}
-              disabled={msLoading}
+              onClick={() => alert('Microsoft 365 temporalmente deshabilitado. Usa el login normal.')}
+              disabled={true}
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#0078d4',
+                backgroundColor: '#9ca3af',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 fontSize: '16px',
                 fontWeight: '500',
-                cursor: msLoading ? 'not-allowed' : 'pointer',
-                opacity: msLoading ? 0.7 : 1,
+                cursor: 'not-allowed',
+                opacity: 0.7,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px'
               }}
             >
-              {msLoading ? '⏳' : '🔐'} Microsoft 365
+              ⏳ Microsoft 365 (Próximamente)
             </button>
-            {isMsAuthenticated && (
-              <div style={{ 
-                marginTop: '10px', 
-                fontSize: '12px', 
-                color: '#10b981' 
-              }}>
-                ✅ Conectado con Microsoft
-              </div>
-            )}
+            <div style={{ 
+              marginTop: '10px', 
+              fontSize: '12px', 
+              color: '#6b7280' 
+            }}>
+              ℹ️ Usa el login normal por ahora
+            </div>
           </div>
         </div>
       </div>
@@ -513,26 +511,14 @@ function GastosPage({ user }: { user: any }) {
   const subirArchivosFactura = async (solicitudId: string) => {
     if (archivosFactura.length === 0) return []
     
-    try {
-      if (isMsAuthenticated && msUploadMultipleFiles) {
-        // Subir archivos reales a SharePoint
-        const urls = await msUploadMultipleFiles(archivosFactura, `Facturas/${solicitudId}`)
-        console.log('✅ Archivos de factura subidos a SharePoint:', urls)
-        return urls
-      } else {
-        // Fallback: simular URLs para desarrollo
-        const urls: string[] = []
-        for (const archivo of archivosFactura) {
-          const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/Facturas/${solicitudId}-${archivo.name}`
-          urls.push(urlSimulada)
-        }
-        console.log('⚠️ SharePoint no configurado, usando URLs simuladas:', urls)
-        return urls
-      }
-    } catch (error) {
-      console.error('❌ Error al subir archivos de factura:', error)
-      return []
+    // Simular URLs para desarrollo (SharePoint deshabilitado temporalmente)
+    const urls: string[] = []
+    for (const archivo of archivosFactura) {
+      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/Facturas/${solicitudId}-${archivo.name}`
+      urls.push(urlSimulada)
     }
+    console.log('📁 Archivos de factura preparados (URLs simuladas):', urls)
+    return urls
   }
 
   const actualizarBien = (id: number, campo: string, valor: string) => {
@@ -653,26 +639,14 @@ function GastosPage({ user }: { user: any }) {
   }
 
   const subirArchivos = async (archivos: File[], solicitudId: string) => {
-    try {
-      if (isMsAuthenticated && msUploadMultipleFiles) {
-        // Subir archivos reales a SharePoint
-        const urls = await msUploadMultipleFiles(archivos, `EvidenciasPago/${solicitudId}`)
-        console.log('✅ Archivos de evidencia subidos a SharePoint:', urls)
-        return urls
-      } else {
-        // Fallback: simular URLs para desarrollo
-        const urls: string[] = []
-        for (const archivo of archivos) {
-          const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/EvidenciasPago/${solicitudId}_${archivo.name}`
-          urls.push(urlSimulada)
-        }
-        console.log('⚠️ SharePoint no configurado, usando URLs simuladas:', urls)
-        return urls
-      }
-    } catch (error) {
-      console.error('❌ Error al subir archivos de evidencia:', error)
-      return []
+    // Simular URLs para desarrollo (SharePoint deshabilitado temporalmente)
+    const urls: string[] = []
+    for (const archivo of archivos) {
+      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/EvidenciasPago/${solicitudId}_${archivo.name}`
+      urls.push(urlSimulada)
     }
+    console.log('📁 Archivos de evidencia preparados (URLs simuladas):', urls)
+    return urls
   }
 
   const procesarFinanzas = async () => {
