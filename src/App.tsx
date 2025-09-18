@@ -846,13 +846,18 @@ function GastosPage({ user }: { user: any }) {
                   
                   // Subir archivos de factura si existen
                   if (archivosFactura.length > 0) {
-                    const urlsFactura = await subirArchivosFactura(resultado.solicitud.id)
-                    if (urlsFactura.length > 0) {
-                      // Actualizar la solicitud con las URLs de factura
-                      await supabase
-                        .from('solicitudes_compra')
-                        .update({ factura_url: urlsFactura.join(',') })
-                        .eq('id', resultado.solicitud.id)
+                    try {
+                      const urlsFactura = await subirArchivosFactura(resultado.solicitud.id)
+                      if (urlsFactura.length > 0) {
+                        // Actualizar la solicitud con las URLs de factura
+                        await supabase
+                          .from('solicitudes_compra')
+                          .update({ factura_url: urlsFactura.join(',') })
+                          .eq('id', resultado.solicitud.id)
+                      }
+                    } catch (error) {
+                      console.warn('⚠️ No se pudieron subir archivos de factura (Storage no configurado):', error)
+                      // Continuar sin archivos
                     }
                   }
                   
