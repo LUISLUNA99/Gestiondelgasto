@@ -2,23 +2,32 @@ import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
 import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto, supabase } from './lib/supabase'
-import { useMicrosoftGraph } from './hooks/useMicrosoftGraphSimple'
+import { useMicrosoftGraph } from './hooks/useMicrosoftGraphMinimal'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   
-  // Hook de Microsoft Graph
-  const {
-    isAuthenticated: isMsAuthenticated,
-    user: msUser,
-    login: msLogin,
-    logout: msLogout,
-    uploadFile: msUploadFile,
-    uploadMultipleFiles: msUploadMultipleFiles,
-    isLoading: msLoading
-  } = useMicrosoftGraph()
+  // Hook de Microsoft Graph (temporalmente deshabilitado)
+  // const {
+  //   isAuthenticated: isMsAuthenticated,
+  //   user: msUser,
+  //   login: msLogin,
+  //   logout: msLogout,
+  //   uploadFile: msUploadFile,
+  //   uploadMultipleFiles: msUploadMultipleFiles,
+  //   isLoading: msLoading
+  // } = useMicrosoftGraph()
+  
+  // Variables temporales para evitar errores
+  const isMsAuthenticated = false
+  const msUser = null
+  const msLogin = () => console.log('Microsoft login deshabilitado')
+  const msLogout = () => console.log('Microsoft logout deshabilitado')
+  const msUploadFile = async () => ''
+  const msUploadMultipleFiles = async () => []
+  const msLoading = false
   const [loading, setLoading] = useState(true)
   const [loginData, setLoginData] = useState({
     email: 'luis.luna@grupocsi.com',
