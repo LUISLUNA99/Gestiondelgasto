@@ -2,22 +2,23 @@ import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
 import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto, supabase } from './lib/supabase'
+import { useMicrosoftGraph } from './hooks/useMicrosoftGraph'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   
-  // Hook de Microsoft Graph (temporalmente deshabilitado)
-  // const {
-  //   isAuthenticated: isMsAuthenticated,
-  //   user: msUser,
-  //   login: msLogin,
-  //   logout: msLogout,
-  //   uploadFile: msUploadFile,
-  //   uploadMultipleFiles: msUploadMultipleFiles,
-  //   isLoading: msLoading
-  // } = useMicrosoftGraph()
+  // Hook de Microsoft Graph
+  const {
+    isAuthenticated: isMsAuthenticated,
+    user: msUser,
+    login: msLogin,
+    logout: msLogout,
+    uploadFile: msUploadFile,
+    uploadMultipleFiles: msUploadMultipleFiles,
+    isLoading: msLoading
+  } = useMicrosoftGraph()
   const [loading, setLoading] = useState(true)
   const [loginData, setLoginData] = useState({
     email: 'luis.luna@grupocsi.com',
@@ -223,6 +224,48 @@ function App() {
               Iniciar Sesión
             </button>
           </form>
+          
+          {/* Botón de Microsoft */}
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <div style={{ 
+              margin: '20px 0', 
+              fontSize: '14px', 
+              color: '#6b7280' 
+            }}>
+              O continúa con
+            </div>
+            <button
+              onClick={msLogin}
+              disabled={msLoading}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                backgroundColor: '#0078d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '500',
+                cursor: msLoading ? 'not-allowed' : 'pointer',
+                opacity: msLoading ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              {msLoading ? '⏳' : '🔐'} Microsoft 365
+            </button>
+            {isMsAuthenticated && (
+              <div style={{ 
+                marginTop: '10px', 
+                fontSize: '12px', 
+                color: '#10b981' 
+              }}>
+                ✅ Conectado con Microsoft
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -470,19 +513,26 @@ function GastosPage({ user }: { user: any }) {
   const subirArchivosFactura = async (solicitudId: string) => {
     if (archivosFactura.length === 0) return []
     
-    // TODO: Implementar subida real a SharePoint cuando esté configurado
-    // Por ahora, simular URLs para desarrollo
-    const urls: string[] = []
-    
-    for (const archivo of archivosFactura) {
-      // Simular URL de SharePoint
-      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/Facturas/${solicitudId}-${archivo.name}`
-      urls.push(urlSimulada)
-      console.log(`📁 Archivo preparado para SharePoint: ${archivo.name}`)
+    try {
+      if (isMsAuthenticated && msUploadMultipleFiles) {
+        // Subir archivos reales a SharePoint
+        const urls = await msUploadMultipleFiles(archivosFactura, `Facturas/${solicitudId}`)
+        console.log('✅ Archivos de factura subidos a SharePoint:', urls)
+        return urls
+      } else {
+        // Fallback: simular URLs para desarrollo
+        const urls: string[] = []
+        for (const archivo of archivosFactura) {
+          const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/Facturas/${solicitudId}-${archivo.name}`
+          urls.push(urlSimulada)
+        }
+        console.log('⚠️ SharePoint no configurado, usando URLs simuladas:', urls)
+        return urls
+      }
+    } catch (error) {
+      console.error('❌ Error al subir archivos de factura:', error)
+      return []
     }
-    
-    console.log('📁 Archivos de factura preparados para SharePoint:', urls)
-    return urls
   }
 
   const actualizarBien = (id: number, campo: string, valor: string) => {
@@ -603,17 +653,26 @@ function GastosPage({ user }: { user: any }) {
   }
 
   const subirArchivos = async (archivos: File[], solicitudId: string) => {
-    const urls: string[] = []
-    
-    for (const archivo of archivos) {
-      // TODO: Implementar subida real a SharePoint cuando esté configurado
-      // Por ahora, simular URLs para desarrollo
-      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/EvidenciasPago/${solicitudId}_${archivo.name}`
-      urls.push(urlSimulada)
-      console.log(`📁 Archivo preparado para SharePoint: ${archivo.name}`)
+    try {
+      if (isMsAuthenticated && msUploadMultipleFiles) {
+        // Subir archivos reales a SharePoint
+        const urls = await msUploadMultipleFiles(archivos, `EvidenciasPago/${solicitudId}`)
+        console.log('✅ Archivos de evidencia subidos a SharePoint:', urls)
+        return urls
+      } else {
+        // Fallback: simular URLs para desarrollo
+        const urls: string[] = []
+        for (const archivo of archivos) {
+          const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/EvidenciasPago/${solicitudId}_${archivo.name}`
+          urls.push(urlSimulada)
+        }
+        console.log('⚠️ SharePoint no configurado, usando URLs simuladas:', urls)
+        return urls
+      }
+    } catch (error) {
+      console.error('❌ Error al subir archivos de evidencia:', error)
+      return []
     }
-    
-    return urls
   }
 
   const procesarFinanzas = async () => {
