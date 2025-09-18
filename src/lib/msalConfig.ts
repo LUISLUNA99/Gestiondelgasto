@@ -3,9 +3,9 @@ import { Configuration, PopupRequest } from '@azure/msal-browser';
 // Configuración de MSAL
 export const msalConfig: Configuration = {
   auth: {
-    clientId: process.env.REACT_APP_AZURE_CLIENT_ID || '', // Tu Client ID de Azure AD
-    authority: process.env.REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common',
-    redirectUri: process.env.REACT_APP_REDIRECT_URI || window.location.origin,
+    clientId: import.meta.env.VITE_REACT_APP_AZURE_CLIENT_ID || '', // Tu Client ID de Azure AD
+    authority: import.meta.env.VITE_REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common',
+    redirectUri: import.meta.env.VITE_REACT_APP_REDIRECT_URI || window.location.origin,
   },
   cache: {
     cacheLocation: 'sessionStorage',
