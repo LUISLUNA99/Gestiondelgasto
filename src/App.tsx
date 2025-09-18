@@ -80,8 +80,26 @@ function App() {
 
   // Función para cerrar sesión
   const handleLogout = async () => {
-    await authService.signOut()
-    setUser(null)
+    try {
+      console.log('🚪 Iniciando proceso de cierre de sesión...')
+      const result = await authService.signOut()
+      
+      if (result.error) {
+        console.error('❌ Error al cerrar sesión:', result.error)
+        alert('Error al cerrar sesión. Intenta de nuevo.')
+        return
+      }
+      
+      console.log('✅ Sesión cerrada exitosamente')
+      setUser(null)
+      
+      // Mostrar mensaje de confirmación
+      alert('Sesión cerrada exitosamente')
+      
+    } catch (error) {
+      console.error('❌ Error inesperado al cerrar sesión:', error)
+      alert('Error inesperado al cerrar sesión')
+    }
   }
 
   // Mostrar loading mientras se verifica la autenticación

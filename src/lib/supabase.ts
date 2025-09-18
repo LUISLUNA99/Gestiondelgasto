@@ -206,10 +206,18 @@ export const authService = {
   // Cerrar sesión
   async signOut() {
     try {
+      console.log('🔐 Cerrando sesión en Supabase...')
       const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      
+      if (error) {
+        console.error('❌ Error de Supabase al cerrar sesión:', error)
+        throw error
+      }
+      
+      console.log('✅ Sesión cerrada en Supabase exitosamente')
       return { error: null }
     } catch (error) {
+      console.error('❌ Error general al cerrar sesión:', error)
       return { error }
     }
   },
