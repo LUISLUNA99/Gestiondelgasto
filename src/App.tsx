@@ -466,31 +466,22 @@ function GastosPage({ user }: { user: any }) {
     setArchivosFactura(prev => prev.filter((_, i) => i !== index))
   }
   
-  // Función para subir archivos de factura a Supabase Storage
+  // Función para subir archivos de factura a SharePoint (cuando esté configurado)
   const subirArchivosFactura = async (solicitudId: string) => {
     if (archivosFactura.length === 0) return []
     
+    // TODO: Implementar subida real a SharePoint cuando esté configurado
+    // Por ahora, simular URLs para desarrollo
     const urls: string[] = []
     
     for (const archivo of archivosFactura) {
-      try {
-        const fileName = `factura-${solicitudId}-${Date.now()}-${archivo.name}`
-        const { data, error } = await supabase.storage
-          .from('evidencias-pago')
-          .upload(fileName, archivo)
-        
-        if (error) throw error
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('evidencias-pago')
-          .getPublicUrl(fileName)
-        
-        urls.push(publicUrl)
-      } catch (error) {
-        console.error('Error al subir archivo de factura:', error)
-      }
+      // Simular URL de SharePoint
+      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/Facturas/${solicitudId}-${archivo.name}`
+      urls.push(urlSimulada)
+      console.log(`📁 Archivo preparado para SharePoint: ${archivo.name}`)
     }
     
+    console.log('📁 Archivos de factura preparados para SharePoint:', urls)
     return urls
   }
 
@@ -615,29 +606,11 @@ function GastosPage({ user }: { user: any }) {
     const urls: string[] = []
     
     for (const archivo of archivos) {
-      try {
-        // Crear nombre único para el archivo
-        const nombreArchivo = `${solicitudId}_${Date.now()}_${archivo.name}`
-        
-        // Subir archivo a Supabase Storage
-        const { data, error } = await supabase.storage
-          .from('evidencias-pago')
-          .upload(nombreArchivo, archivo)
-        
-        if (error) {
-          console.error('Error al subir archivo:', error)
-          continue
-        }
-        
-        // Obtener URL pública del archivo
-        const { data: urlData } = supabase.storage
-          .from('evidencias-pago')
-          .getPublicUrl(nombreArchivo)
-        
-        urls.push(urlData.publicUrl)
-      } catch (error) {
-        console.error('Error al procesar archivo:', error)
-      }
+      // TODO: Implementar subida real a SharePoint cuando esté configurado
+      // Por ahora, simular URLs para desarrollo
+      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/EvidenciasPago/${solicitudId}_${archivo.name}`
+      urls.push(urlSimulada)
+      console.log(`📁 Archivo preparado para SharePoint: ${archivo.name}`)
     }
     
     return urls
