@@ -80,6 +80,9 @@ function App() {
 
   // Función para cerrar sesión
   const handleLogout = async () => {
+    console.log('🔴 BOTÓN DE CERRAR SESIÓN CLICKEADO!')
+    alert('Botón de cerrar sesión clickeado - verificando...')
+    
     try {
       console.log('🚪 Iniciando proceso de cierre de sesión...')
       const result = await authService.signOut()
@@ -966,7 +969,7 @@ function GastosPage({ user }: { user: any }) {
                 </span>
               </div>
               <button
-                onClick={() => window.location.reload()}
+                onClick={handleLogout}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
