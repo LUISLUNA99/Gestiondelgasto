@@ -393,7 +393,7 @@ function App() {
               {currentPage === 'gastos' ? 'Gastos' : 'Solicitudes de Compra'}
             </h1>
             <button
-              onClick={handleLogout}
+              onClick={onLogout}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -969,7 +969,7 @@ function GastosPage({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </span>
               </div>
               <button
-                onClick={handleLogout}
+                onClick={onLogout}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
