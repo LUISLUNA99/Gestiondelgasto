@@ -393,7 +393,7 @@ function App() {
               {currentPage === 'gastos' ? 'Gastos' : 'Solicitudes de Compra'}
             </h1>
             <button
-              onClick={handleLogout}
+              onClick={onLogout}
               style={{
                 display: 'flex',
                 alignItems: 'center',
