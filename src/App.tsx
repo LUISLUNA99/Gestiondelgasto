@@ -969,7 +969,7 @@ function GastosPage({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </span>
               </div>
               <button
-                onClick={onLogout}
+                onClick={handleLogout}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
