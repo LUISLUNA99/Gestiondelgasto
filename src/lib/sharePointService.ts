@@ -14,6 +14,7 @@ export interface SharePointFile {
 // Servicio de SharePoint
 export class SharePointService {
   private graphClient: Client;
+  private siteId: string = '';
 
   constructor(accessToken: string) {
     this.graphClient = Client.init({
@@ -23,21 +24,61 @@ export class SharePointService {
     });
   }
 
+  // Inicializar el servicio obteniendo el Site ID dinámicamente
+  async init(): Promise<void> {
+    try {
+      console.log('🔄 Inicializando SharePoint Service...');
+      const siteName = sharePointConfig.siteId || 'gestiongasto';
+      
+      // Buscar el sitio por su nombre
+      const response = await this.graphClient
+        .api('/sites')
+        .query({ search: siteName })
+        .get();
+
+      if (response && response.value && response.value.length > 0) {
+        this.siteId = response.value[0].id;
+        console.log(`✅ Site ID para '${siteName}' obtenido: ${this.siteId}`);
+      } else {
+        throw new Error(`No se pudo encontrar el sitio de SharePoint con el nombre: ${siteName}`);
+      }
+    } catch (error) {
+      console.error('❌ Error al inicializar SharePoint Service:', error);
+      throw error;
+    }
+  }
+
+  // Construye ruta año/mes/solicitud
+  private buildNestedPath(baseFolder: string, solicitudId?: string): string {
+    const now = new Date()
+    const year = String(now.getFullYear())
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const safeBase = baseFolder.replace(/^[\/]+|[\/]+$/g, '')
+    if (solicitudId) {
+      return `${safeBase}/${year}/${month}/${solicitudId}`
+    }
+    return `${safeBase}/${year}/${month}`
+  }
+
   // Subir archivo a SharePoint
-  async uploadFile(file: File, folderPath: string = sharePointConfig.folderPath): Promise<SharePointFile> {
+  async uploadFile(file: File, folderPath: string = sharePointConfig.folderPath, solicitudId?: string): Promise<SharePointFile> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
     try {
       console.log('📤 Subiendo archivo a SharePoint:', file.name);
-      
+      // Crear estructura año/mes/solicitud
+      const nested = this.buildNestedPath(folderPath, solicitudId)
+      await this.createFolderIfNotExists(nested)
+
       // Crear el nombre único del archivo
       const fileName = `${Date.now()}-${file.name}`;
-      const filePath = `${folderPath}/${fileName}`;
+      const filePath = `${nested}/${fileName}`;
       
       // Convertir archivo a ArrayBuffer
       const arrayBuffer = await file.arrayBuffer();
       
       // Subir archivo usando Microsoft Graph
       const uploadResult = await this.graphClient
-        .api(`/sites/${sharePointConfig.siteId}/drive/root:/${filePath}:/content`)
+        .api(`/sites/${this.siteId}/drive/root:/${filePath}:/content`)
         .put(arrayBuffer);
       
       console.log('✅ Archivo subido exitosamente:', uploadResult.name);
@@ -57,12 +98,12 @@ export class SharePointService {
   }
 
   // Subir múltiples archivos
-  async uploadMultipleFiles(files: File[], folderPath: string = sharePointConfig.folderPath): Promise<SharePointFile[]> {
+  async uploadMultipleFiles(files: File[], folderPath: string = sharePointConfig.folderPath, solicitudId?: string): Promise<SharePointFile[]> {
     const results: SharePointFile[] = [];
     
     for (const file of files) {
       try {
-        const result = await this.uploadFile(file, folderPath);
+        const result = await this.uploadFile(file, folderPath, solicitudId);
         results.push(result);
       } catch (error) {
         console.error(`Error al subir archivo ${file.name}:`, error);
@@ -75,9 +116,10 @@ export class SharePointService {
 
   // Obtener archivo por ID
   async getFile(fileId: string): Promise<SharePointFile> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
     try {
       const file = await this.graphClient
-        .api(`/sites/${sharePointConfig.siteId}/drive/items/${fileId}`)
+        .api(`/sites/${this.siteId}/drive/items/${fileId}`)
         .get();
       
       return {
@@ -96,9 +138,10 @@ export class SharePointService {
 
   // Eliminar archivo
   async deleteFile(fileId: string): Promise<void> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
     try {
       await this.graphClient
-        .api(`/sites/${sharePointConfig.siteId}/drive/items/${fileId}`)
+        .api(`/sites/${this.siteId}/drive/items/${fileId}`)
         .delete();
       
       console.log('✅ Archivo eliminado exitosamente');
@@ -110,9 +153,10 @@ export class SharePointService {
 
   // Listar archivos en una carpeta
   async listFiles(folderPath: string = sharePointConfig.folderPath): Promise<SharePointFile[]> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
     try {
       const response = await this.graphClient
-        .api(`/sites/${sharePointConfig.siteId}/drive/root:/${folderPath}:/children`)
+        .api(`/sites/${this.siteId}/drive/root:/${folderPath}:/children`)
         .get();
       
       return response.value.map((file: any) => ({
@@ -129,33 +173,54 @@ export class SharePointService {
     }
   }
 
-  // Crear carpeta si no existe
+  // Crear carpeta si no existe (recursivamente)
   async createFolderIfNotExists(folderPath: string = sharePointConfig.folderPath): Promise<void> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
+      
     try {
       // Intentar obtener la carpeta
       await this.graphClient
-        .api(`/sites/${sharePointConfig.siteId}/drive/root:/${folderPath}`)
+        .api(`/sites/${this.siteId}/drive/root:/${folderPath}`)
         .get();
       
-      console.log('✅ La carpeta ya existe');
+      console.log('✅ La carpeta ya existe:', folderPath);
     } catch (error) {
-      // Si no existe, crearla
-      try {
-        const folderName = folderPath.split('/').pop();
-        const parentPath = folderPath.replace(`/${folderName}`, '');
+      // Si no existe, crear recursivamente
+      const pathParts = folderPath.split('/').filter(part => part.length > 0);
+      let currentPath = '';
+      
+      for (let i = 0; i < pathParts.length; i++) {
+        currentPath = currentPath ? `${currentPath}/${pathParts[i]}` : pathParts[i];
         
-        await this.graphClient
-          .api(`/sites/${sharePointConfig.siteId}/drive/root:/${parentPath}:/children`)
-          .post({
-            name: folderName,
-            folder: {},
-            '@microsoft.graph.conflictBehavior': 'rename'
-          });
-        
-        console.log('✅ Carpeta creada exitosamente');
-      } catch (createError) {
-        console.error('❌ Error al crear carpeta:', createError);
-        throw new Error(`Error al crear carpeta: ${createError}`);
+        try {
+          // Verificar si la carpeta actual existe
+          await this.graphClient
+            .api(`/sites/${this.siteId}/drive/root:/${currentPath}`)
+            .get();
+          
+          console.log('✅ La carpeta ya existe:', currentPath);
+        } catch (folderError) {
+          // Crear la carpeta actual
+          try {
+            const parentPath = i === 0 ? '' : pathParts.slice(0, i).join('/');
+            const apiPath = parentPath 
+              ? `/sites/${this.siteId}/drive/root:/${parentPath}:/children`
+              : `/sites/${this.siteId}/drive/root/children`;
+            
+            await this.graphClient
+              .api(apiPath)
+              .post({
+                name: pathParts[i],
+                folder: {},
+                '@microsoft.graph.conflictBehavior': 'rename'
+              });
+            
+            console.log('✅ Carpeta creada exitosamente:', currentPath);
+          } catch (createError) {
+            console.error('❌ Error al crear carpeta:', currentPath, createError);
+            throw new Error(`Error al crear carpeta ${currentPath}: ${createError}`);
+          }
+        }
       }
     }
   }

@@ -2,32 +2,24 @@ import { useState, useEffect } from 'react'
 import { FileText, TrendingUp, Menu, X, LogOut, User } from 'lucide-react'
 import './App.css'
 import { gastosService, authService, centrosCostoService, clasificacionesService, empresasGeneradorasService, proveedoresService, cuentasContablesService, solicitudesCompraService, type Gasto, supabase } from './lib/supabase'
-import { useMicrosoftGraph } from './hooks/useMicrosoftGraphMinimal'
+import { useMicrosoftGraph } from './hooks/useMicrosoftGraph'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'gastos' | 'solicitudes'>('gastos')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   
-  // Hook de Microsoft Graph (temporalmente deshabilitado)
-  // const {
-  //   isAuthenticated: isMsAuthenticated,
-  //   user: msUser,
-  //   login: msLogin,
-  //   logout: msLogout,
-  //   uploadFile: msUploadFile,
-  //   uploadMultipleFiles: msUploadMultipleFiles,
-  //   isLoading: msLoading
-  // } = useMicrosoftGraph()
+  // Hook de Microsoft Graph
+  const {
+    isAuthenticated: isMsAuthenticated,
+    user: msUser,
+    login: msLogin,
+    logout: msLogout,
+    uploadFile: msUploadFile,
+    uploadMultipleFiles: msUploadMultipleFiles,
+    isLoading: msLoading
+  } = useMicrosoftGraph()
   
-  // Variables temporales para evitar errores
-  const isMsAuthenticated = false
-  const msUser = null
-  const msLogin = () => console.log('Microsoft login deshabilitado')
-  const msLogout = () => console.log('Microsoft logout deshabilitado')
-  const msUploadFile = async () => ''
-  const msUploadMultipleFiles = async () => []
-  const msLoading = false
   const [loading, setLoading] = useState(true)
   const [loginData, setLoginData] = useState({
     email: 'luis.luna@grupocsi.com',
@@ -58,6 +50,8 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  
+
   // Función para manejar el login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,32 +75,34 @@ function App() {
   // Función para cerrar sesión
   const handleLogout = async () => {
     console.log('🔴 BOTÓN DE CERRAR SESIÓN CLICKEADO!')
-    alert('Botón de cerrar sesión clickeado - verificando...')
-    
     try {
       console.log('🚪 Iniciando proceso de cierre de sesión...')
-      const result = await authService.signOut()
-      
-      if (result.error) {
-        console.error('❌ Error al cerrar sesión:', result.error)
-        alert('Error al cerrar sesión. Intenta de nuevo.')
-        return
+      // Cerrar sesión en paralelo donde aplique
+      const supabaseSignOut = authService.signOut()
+      const msSignOut = isMsAuthenticated ? msLogout() : Promise.resolve()
+      const results = await Promise.allSettled([supabaseSignOut, msSignOut])
+
+      const supabaseResult = results[0]
+      if (supabaseResult.status === 'rejected') {
+        console.error('❌ Error al cerrar sesión en Supabase:', supabaseResult.reason)
       }
-      
-      console.log('✅ Sesión cerrada exitosamente')
+
+      console.log('✅ Sesión cerrada')
       setUser(null)
-      
-      // Mostrar mensaje de confirmación
-      alert('Sesión cerrada exitosamente')
-      
     } catch (error) {
-      console.error('❌ Error inesperado al cerrar sesión:', error)
-      alert('Error inesperado al cerrar sesión')
+      console.error('❌ Error general al cerrar sesión:', error)
+      alert('Error al cerrar sesión. Intenta de nuevo.')
+      return
     }
+
+    // Confirmación visual
+    alert('Sesión cerrada exitosamente')
   }
 
+  const displayName = user?.email || (msUser as any)?.username || (msUser as any)?.name || 'Usuario'
+
   // Mostrar loading mientras se verifica la autenticación
-  if (loading) {
+  if (loading || msLoading) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -131,8 +127,8 @@ function App() {
     )
   }
 
-  // Mostrar login si no hay usuario autenticado
-  if (!user) {
+  // Mostrar login si no hay usuario autenticado ni sesión de Microsoft
+  if (!user && !isMsAuthenticated) {
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -265,26 +261,26 @@ function App() {
               O continúa con
             </div>
             <button
-              onClick={() => alert('Microsoft 365 temporalmente deshabilitado. Usa el login normal.')}
-              disabled={true}
+              onClick={msLogin}
+              disabled={msLoading}
               style={{
                 width: '100%',
                 padding: '12px 24px',
-                backgroundColor: '#9ca3af',
+                backgroundColor: '#3b82f6',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 fontSize: '16px',
                 fontWeight: '500',
-                cursor: 'not-allowed',
-                opacity: 0.7,
+                cursor: msLoading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px'
+                gap: '8px',
+                opacity: msLoading ? 0.7 : 1
               }}
             >
-              ⏳ Microsoft 365 (Próximamente)
+              {msLoading ? 'Conectando a Microsoft...' : 'Continuar con Microsoft 365'}
             </button>
             <div style={{ 
               marginTop: '10px', 
@@ -415,7 +411,7 @@ function App() {
 
         {/* Contenido de la página */}
         <main>
-          {currentPage === 'gastos' && <GastosPage user={user} handleLogout={handleLogout} />}
+          {currentPage === 'gastos' && <GastosPage user={user} userDisplayName={displayName} isMsAuthenticated={isMsAuthenticated} msUploadMultipleFiles={msUploadMultipleFiles} handleLogout={handleLogout} />}
           {currentPage === 'solicitudes' && <SolicitudesPage />}
         </main>
       </div>
@@ -424,7 +420,7 @@ function App() {
 }
 
 // Componente de Gastos con base de datos
-function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Promise<void> }) {
+function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultipleFiles, handleLogout }: { user: any, userDisplayName: string, isMsAuthenticated: boolean, msUploadMultipleFiles: (files: File[], subfolder?: string, solicitudId?: string) => Promise<any[]>, handleLogout: () => Promise<void> }) {
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -436,22 +432,22 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
   const [proveedores, setProveedores] = useState<any[]>([])
   const [cuentasContables, setCuentasContables] = useState<any[]>([])
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
-    solicitante: '',
-    centro_costo: '',
-    proyecto: '',
-    clasificacion_inicial: '',
-    mes_servicio: '',
-    mes_pago: '',
-    empresa_generadora: '',
-    empresa_pagadora: '',
-    codigo_contable: ''
+    solicitante: user?.email || '',
+    centro_costo: 'CSI001', // Centro de costo por defecto
+    proyecto: 'Proyecto de Prueba', // Proyecto por defecto
+    clasificacion_inicial: 'Gastos Operativos', // Clasificación por defecto
+    mes_servicio: new Date().toISOString().slice(0, 7), // Mes actual (YYYY-MM)
+    mes_pago: new Date().toISOString().slice(0, 7), // Mes actual (YYYY-MM)
+    empresa_generadora: 'Grupo CSI', // Empresa generadora por defecto
+    empresa_pagadora: 'Grupo CSI', // Empresa pagadora por defecto
+    codigo_contable: '4001' // Código contable por defecto
   })
 
   const [bienes, setBienes] = useState([{
     id: 1,
-    cantidad: '',
-    descripcion: '',
-    monto_estimado: '',
+    cantidad: '1', // Cantidad por defecto
+    descripcion: 'Servicio de prueba para validación', // Descripción por defecto
+    monto_estimado: '1000', // Monto por defecto
     moneda: 'MXN'
   }])
   
@@ -489,6 +485,28 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
     solicitudId: '',
     archivos: [] as File[]
   })
+
+  // Sincronizar solicitante (correo) con el usuario autenticado
+  useEffect(() => {
+    const correo = (user && (user.email || (user as any)?.user_metadata?.email)) || (userDisplayName && userDisplayName.includes('@') ? userDisplayName : '')
+    if (correo) {
+      setNuevaSolicitud(prev => ({ ...prev, solicitante: correo }))
+    }
+  }, [user, userDisplayName])
+
+  // Visor de archivos (imagen/PDF)
+  const [visorArchivo, setVisorArchivo] = useState<{ abierto: boolean, url: string, tipo: 'image' | 'pdf' | 'other' }>({
+    abierto: false,
+    url: '',
+    tipo: 'other'
+  })
+
+  const obtenerTipoArchivo = (url: string): 'image' | 'pdf' | 'other' => {
+    const base = url.split('?')[0].toLowerCase()
+    if (base.endsWith('.png') || base.endsWith('.jpg') || base.endsWith('.jpeg') || base.endsWith('.gif') || base.endsWith('.webp')) return 'image'
+    if (base.endsWith('.pdf')) return 'pdf'
+    return 'other'
+  }
 
   // Actualizar el solicitante cuando cambie el usuario
   useEffect(() => {
@@ -537,17 +555,33 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
     setArchivosFactura(prev => prev.filter((_, i) => i !== index))
   }
   
-  // Función para subir archivos de factura a SharePoint (cuando esté configurado)
+  // Función para subir archivos de factura a SharePoint
   const subirArchivosFactura = async (solicitudId: string) => {
     if (archivosFactura.length === 0) return []
     
-    // Simular URLs para desarrollo (SharePoint deshabilitado temporalmente)
+    // Si está autenticado con Microsoft, subir a SharePoint, si no, usar Supabase storage como fallback
+    try {
+      if (isMsAuthenticated) {
+        const results = await msUploadMultipleFiles(archivosFactura, 'Facturas', solicitudId)
+        return results.map(result => result.downloadUrl)
+      }
+    } catch (e) {
+      console.warn('Fallo subiendo a SharePoint, se usará Supabase storage como respaldo.', e)
+    }
+
+    // Fallback a Supabase storage
     const urls: string[] = []
     for (const archivo of archivosFactura) {
-      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/Facturas/${solicitudId}-${archivo.name}`
-      urls.push(urlSimulada)
+      try {
+        const fileName = `factura-${solicitudId}-${Date.now()}-${archivo.name}`
+        const { error } = await supabase.storage.from('evidencias-pago').upload(fileName, archivo)
+        if (error) throw error
+        const { data: { publicUrl } } = supabase.storage.from('evidencias-pago').getPublicUrl(fileName)
+        urls.push(publicUrl)
+      } catch (error) {
+        console.error('Error al subir archivo a Supabase:', error)
+      }
     }
-    console.log('📁 Archivos de factura preparados (URLs simuladas):', urls)
     return urls
   }
 
@@ -669,13 +703,29 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
   }
 
   const subirArchivos = async (archivos: File[], solicitudId: string) => {
-    // Simular URLs para desarrollo (SharePoint deshabilitado temporalmente)
+    // Si está autenticado con Microsoft, subir a SharePoint, si no, usar Supabase storage como fallback
+    try {
+      if (isMsAuthenticated) {
+        const results = await msUploadMultipleFiles(archivos, 'EvidenciasPago', solicitudId)
+        return results.map(result => result.downloadUrl)
+      }
+    } catch (e) {
+      console.warn('Fallo subiendo a SharePoint, se usará Supabase storage como respaldo.', e)
+    }
+
+    // Fallback a Supabase storage
     const urls: string[] = []
     for (const archivo of archivos) {
-      const urlSimulada = `https://buzzwordcom.sharepoint.com/sites/gestiongasto/Shared%20Documents/GestionGasto/Archivos/EvidenciasPago/${solicitudId}_${archivo.name}`
-      urls.push(urlSimulada)
+      try {
+        const fileName = `evidencia-${solicitudId}-${Date.now()}-${archivo.name}`
+        const { error } = await supabase.storage.from('evidencias-pago').upload(fileName, archivo)
+        if (error) throw error
+        const { data: { publicUrl } } = supabase.storage.from('evidencias-pago').getPublicUrl(fileName)
+        urls.push(publicUrl)
+      } catch (error) {
+        console.error('Error al subir archivo a Supabase:', error)
+      }
     }
-    console.log('📁 Archivos de evidencia preparados (URLs simuladas):', urls)
     return urls
   }
 
@@ -757,27 +807,28 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
   const subirArchivosFacturaModal = async (solicitudId: string) => {
     if (modalFactura.archivos.length === 0) return []
     
+    // Si está autenticado con Microsoft, subir a SharePoint, si no, usar Supabase storage como fallback
+    try {
+      if (isMsAuthenticated) {
+        const results = await msUploadMultipleFiles(modalFactura.archivos, 'Facturas', solicitudId)
+        return results.map(result => result.downloadUrl)
+      }
+    } catch (e) {
+      console.warn('Fallo subiendo a SharePoint, se usará Supabase storage como respaldo.', e)
+    }
+
     const urls: string[] = []
-    
     for (const archivo of modalFactura.archivos) {
       try {
         const fileName = `factura-${solicitudId}-${Date.now()}-${archivo.name}`
-        const { data, error } = await supabase.storage
-          .from('evidencias-pago')
-          .upload(fileName, archivo)
-        
+        const { error } = await supabase.storage.from('evidencias-pago').upload(fileName, archivo)
         if (error) throw error
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('evidencias-pago')
-          .getPublicUrl(fileName)
-        
+        const { data: { publicUrl } } = supabase.storage.from('evidencias-pago').getPublicUrl(fileName)
         urls.push(publicUrl)
       } catch (error) {
-        console.error('Error al subir archivo de factura:', error)
+        console.error('Error al subir archivo de factura a Supabase:', error)
       }
     }
-    
     return urls
   }
   
@@ -846,7 +897,9 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
   }
 
   const agregarSolicitud = async () => {
-    if (nuevaSolicitud.solicitante && bienes.length > 0) {
+    // Forzar solicitante con correo visible
+    const solicitanteCorreo = nuevaSolicitud.solicitante || (user && (user.email || user.user_metadata?.email)) || userDisplayName || ''
+    if (solicitanteCorreo && bienes.length > 0) {
       try {
         // Generar folio automáticamente basado en timestamp
         const folioGenerado = `SC-${Date.now()}`
@@ -857,7 +910,7 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
         const solicitudData = {
           folio: folioGenerado,
           fecha_solicitud: fechaActual,
-          solicitante: nuevaSolicitud.solicitante,
+          solicitante: solicitanteCorreo,
           centro_costo: nuevaSolicitud.centro_costo,
           proyecto: nuevaSolicitud.proyecto,
           clasificacion_inicial: nuevaSolicitud.clasificacion_inicial,
@@ -869,6 +922,16 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
           total_estimado: calcularTotal()
         }
         
+        // Validar campos mínimos
+        if (!solicitudData.solicitante) {
+          alert('Falta el campo Solicitante.');
+          return
+        }
+        if (!solicitudData.centro_costo) {
+          alert('Selecciona un Centro de Costo.');
+          return
+        }
+
         // Preparar datos de los bienes
         const bienesData = bienes.map(bien => ({
           cantidad: parseInt(bien.cantidad) || 1,
@@ -962,10 +1025,20 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                padding: '4px 8px',
+                borderRadius: '9999px',
+                fontSize: '12px',
+                fontWeight: 600,
+                backgroundColor: isMsAuthenticated ? '#dbeafe' : '#e5e7eb',
+                color: isMsAuthenticated ? '#1d4ed8' : '#374151'
+              }}>
+                {isMsAuthenticated ? 'Microsoft 365' : 'Usuario/Contraseña'}
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <User style={{ width: '16px', height: '16px', color: '#6b7280' }} />
                 <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                  Usuario
+                  {userDisplayName}
                 </span>
               </div>
               <button
@@ -1500,12 +1573,82 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                     <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>Nueva Solicitud de Compra</h2>
-                    <button
-                      onClick={() => setShowForm(false)}
-                      style={{ color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}
-                    >
-                      ✕
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => {
+                          setNuevaSolicitud({
+                            solicitante: user?.email || '',
+                            centro_costo: 'CSI001',
+                            proyecto: 'Proyecto de Prueba',
+                            clasificacion_inicial: 'Gastos Operativos',
+                            mes_servicio: new Date().toISOString().slice(0, 7),
+                            mes_pago: new Date().toISOString().slice(0, 7),
+                            empresa_generadora: 'Grupo CSI',
+                            empresa_pagadora: 'Grupo CSI',
+                            codigo_contable: '4001'
+                          })
+                          setBienes([{
+                            id: 1,
+                            cantidad: '1',
+                            descripcion: 'Servicio de prueba para validación',
+                            monto_estimado: '1000',
+                            moneda: 'MXN'
+                          }])
+                        }}
+                        style={{ 
+                          padding: '8px 16px', 
+                          backgroundColor: '#dbeafe', 
+                          color: '#1e40af', 
+                          border: '1px solid #93c5fd', 
+                          borderRadius: '6px', 
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        ⚡ Valores Prueba
+                      </button>
+                      <button
+                        onClick={() => {
+                          setNuevaSolicitud({
+                            solicitante: user?.email || '',
+                            centro_costo: '',
+                            proyecto: '',
+                            clasificacion_inicial: '',
+                            mes_servicio: '',
+                            mes_pago: '',
+                            empresa_generadora: '',
+                            empresa_pagadora: '',
+                            codigo_contable: ''
+                          })
+                          setBienes([{
+                            id: 1,
+                            cantidad: '',
+                            descripcion: '',
+                            monto_estimado: '',
+                            moneda: 'MXN'
+                          }])
+                        }}
+                        style={{ 
+                          padding: '8px 16px', 
+                          backgroundColor: '#f3f4f6', 
+                          color: '#374151', 
+                          border: '1px solid #d1d5db', 
+                          borderRadius: '6px', 
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        🗑️ Limpiar
+                      </button>
+                      <button
+                        onClick={() => setShowForm(false)}
+                        style={{ color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -2265,6 +2408,59 @@ function GastosPage({ user, handleLogout }: { user: any, handleLogout: () => Pro
                 </div>
               </div>
             </div>
+
+            {/* Archivos adjuntos (Factura / Evidencias) */}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
+                📎 Archivos Adjuntos
+              </h3>
+              {pantallaDetalle.solicitud.factura_url ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {pantallaDetalle.solicitud.factura_url.split(',').map((url: string, idx: number) => (
+                    <div key={idx} style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button onClick={() => setVisorArchivo({ abierto: true, url: url.trim(), tipo: obtenerTipoArchivo(url.trim()) })} style={{ color: '#2563eb', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+                          Ver archivo {idx + 1}
+                        </button>
+                        <a href={url.trim()} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#6b7280' }}>Abrir en pestaña nueva</a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ color: '#6b7280' }}>No hay archivos adjuntos.</p>
+              )}
+            </div>
+
+            {/* Modal Visor */}
+            {visorArchivo.abierto && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+                <div style={{ background: 'white', width: '90%', maxWidth: '900px', maxHeight: '90vh', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
+                    <strong>Visor de documento</strong>
+                    <button onClick={() => setVisorArchivo({ abierto: false, url: '', tipo: 'other' })} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <div style={{ flex: 1, background: '#111827' }}>
+                    {visorArchivo.tipo === 'image' && (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img src={visorArchivo.url} alt="Vista previa" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                      </div>
+                    )}
+                    {visorArchivo.tipo === 'pdf' && (
+                      <iframe src={visorArchivo.url} style={{ width: '100%', height: '100%', border: 'none', background: 'white' }}></iframe>
+                    )}
+                    {visorArchivo.tipo === 'other' && (
+                      <div style={{ padding: '16px', color: 'white' }}>
+                        No se puede previsualizar este tipo de archivo. Usa el enlace para abrirlo.
+                        <div style={{ marginTop: '8px' }}>
+                          <a href={visorArchivo.url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>Abrir archivo</a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Botones de Acción */}
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>

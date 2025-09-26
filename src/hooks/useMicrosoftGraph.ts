@@ -1,168 +1,161 @@
 import { useState, useEffect } from 'react';
-import { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
+import { PublicClientApplication } from '@azure/msal-browser';
+import type { AccountInfo } from '@azure/msal-browser';
 import { msalConfig, loginRequest } from '../lib/msalConfig';
 import { SharePointService } from '../lib/sharePointService';
 
-// Instancia de MSAL (se inicializa cuando se necesita)
-let msalInstance: PublicClientApplication | null = null;
+// Declarar propiedades globales para sobrevivir a HMR
+declare global {
+  interface Window {
+    __MSAL_INSTANCE__?: PublicClientApplication;
+    __MSAL_INITIALIZED__?: boolean;
+  }
+}
 
+// Instancia MSAL singleton (sobrevive a recargas HMR)
+let msalInstance: PublicClientApplication | null = null;
+function getMsal(): PublicClientApplication {
+  if (window.__MSAL_INSTANCE__) {
+    return window.__MSAL_INSTANCE__;
+  }
+  const instance = new PublicClientApplication(msalConfig);
+  window.__MSAL_INSTANCE__ = instance;
+  return instance;
+}
+
+// Hook para interactuar con Microsoft Graph
 export const useMicrosoftGraph = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<AccountInfo | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [account, setAccount] = useState<AccountInfo | null>(null);
+  const [error, setError] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sharePointService, setSharePointService] = useState<SharePointService | null>(null);
 
-  // Inicializar MSAL
   useEffect(() => {
-    const initializeMsal = async () => {
-      try {
-        if (!msalInstance) {
-          msalInstance = new PublicClientApplication(msalConfig);
+    const msalInstance = getMsal();
+
+    const initializeAndLoadAccount = async () => {
+      // 1. Inicializar MSAL si aún no se ha hecho
+      if (!window.__MSAL_INITIALIZED__) {
+        try {
+          console.log('🔄 Inicializando MSAL...');
+          await msalInstance.initialize();
+          window.__MSAL_INITIALIZED__ = true;
+          console.log('✅ MSAL inicializado.');
+        } catch (e) {
+          console.error('❌ Error al inicializar MSAL:', e);
+          setError(e);
+          setIsLoading(false);
+          return;
         }
-        await msalInstance.initialize();
-        
-        // Verificar si hay una cuenta activa
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-          const account = accounts[0];
-          setUser(account);
-          setIsAuthenticated(true);
-          
-          // Obtener token de acceso
-          await getAccessToken();
-        }
-      } catch (error) {
-        console.error('Error al inicializar MSAL:', error);
-      } finally {
-        setIsLoading(false);
       }
+
+      // 2. Manejar la respuesta del redirect ANTES de buscar la cuenta activa
+      try {
+        const response = await msalInstance.handleRedirectPromise();
+        if (response && response.account) {
+          msalInstance.setActiveAccount(response.account);
+        }
+      } catch (e) {
+        console.error('❌ Error en handleRedirectPromise:', e);
+        setError(e);
+        // No detener el flujo aquí, aún podemos tener una sesión activa
+      }
+
+      // 3. Obtener la cuenta activa AHORA (después del redirect)
+      const activeAccount = msalInstance.getActiveAccount();
+      
+      // 4. Establecer la cuenta y obtener el token de acceso
+      if (activeAccount) {
+        setAccount(activeAccount);
+        try {
+          const tokenResponse = await msalInstance.acquireTokenSilent({
+            ...loginRequest,
+            account: activeAccount,
+          });
+          setAccessToken(tokenResponse.accessToken);
+        } catch (e) {
+          // Es normal que falle si se necesita interacción, no es un error crítico aquí
+          console.warn('⚠️ Fallo acquireTokenSilent:', e);
+          // Si el login es requerido, el usuario lo iniciará manualmente
+        }
+      }
+
+      setIsLoading(false);
     };
 
-    initializeMsal();
+    initializeAndLoadAccount();
   }, []);
 
-  // Obtener token de acceso
-  const getAccessToken = async (): Promise<string | null> => {
-    try {
-      if (!msalInstance) return null;
-      
-      const accounts = msalInstance.getAllAccounts();
-      if (accounts.length === 0) return null;
-
-      const account = accounts[0];
-      const response = await msalInstance.acquireTokenSilent({
-        ...loginRequest,
-        account: account,
-      });
-
-      setAccessToken(response.accessToken);
-      
-      // Crear instancia del servicio de SharePoint
-      const service = new SharePointService(response.accessToken);
-      setSharePointService(service);
-      
-      return response.accessToken;
-    } catch (error) {
-      console.error('Error al obtener token:', error);
-      return null;
-    }
-  };
-
-  // Iniciar sesión
-  const login = async (): Promise<void> => {
-    try {
-      if (!msalInstance) {
-        msalInstance = new PublicClientApplication(msalConfig);
-        await msalInstance.initialize();
+  useEffect(() => {
+    const initializeService = async () => {
+      if (accessToken && !sharePointService) {
+        try {
+          const spService = new SharePointService(accessToken);
+          await spService.init(); // Inicializar el servicio
+          setSharePointService(spService);
+        } catch (initError) {
+          console.error("Fallo al inicializar SharePoint Service:", initError);
+          setError(initError); // Guardar el error de inicialización
+        }
       }
-      
-      setIsLoading(true);
-      const response = await msalInstance.loginPopup(loginRequest);
-      
-      setUser(response.account);
-      setIsAuthenticated(true);
-      setAccessToken(response.accessToken);
-      
-      // Crear instancia del servicio de SharePoint
-      const service = new SharePointService(response.accessToken);
-      setSharePointService(service);
-      
-      console.log('✅ Inicio de sesión exitoso');
-    } catch (error) {
-      console.error('❌ Error al iniciar sesión:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    initializeService();
+  }, [accessToken, sharePointService]);
+
+  // Login
+  const login = async () => {
+    const msalInstance = getMsal();
+    await msalInstance.loginRedirect(loginRequest);
   };
 
-  // Cerrar sesión
+  // Cerrar sesión con redirect para experiencia consistente
   const logout = async (): Promise<void> => {
-    try {
-      if (!msalInstance) return;
-      
-      await msalInstance.logoutPopup();
-      setUser(null);
-      setIsAuthenticated(false);
-      setAccessToken(null);
-      setSharePointService(null);
-      console.log('✅ Sesión cerrada exitosamente');
-    } catch (error) {
-      console.error('❌ Error al cerrar sesión:', error);
-      throw error;
-    }
+    msalInstance = getMsal();
+    await msalInstance.logoutRedirect();
   };
 
-  // Subir archivo a SharePoint
-  const uploadFile = async (file: File, folderPath?: string): Promise<any> => {
+  // Subir un solo archivo (ejemplo)
+  const uploadFile = async (file: File, folderPath?: string) => {
     if (!sharePointService) {
-      throw new Error('Servicio de SharePoint no disponible');
+      throw new Error('SharePoint Service no está inicializado');
     }
-    
     return await sharePointService.uploadFile(file, folderPath);
   };
 
   // Subir múltiples archivos
-  const uploadMultipleFiles = async (files: File[], folderPath?: string): Promise<any[]> => {
+  const uploadMultipleFiles = async (files: File[], folderPath: string, solicitudId?: string) => {
     if (!sharePointService) {
-      throw new Error('Servicio de SharePoint no disponible');
+      throw new Error('SharePoint Service no está inicializado');
     }
-    
-    return await sharePointService.uploadMultipleFiles(files, folderPath);
+    return await sharePointService.uploadMultipleFiles(files, folderPath, solicitudId);
   };
 
-  // Eliminar archivo
   const deleteFile = async (fileId: string): Promise<void> => {
     if (!sharePointService) {
       throw new Error('Servicio de SharePoint no disponible');
     }
-    
     return await sharePointService.deleteFile(fileId);
   };
 
-  // Listar archivos
   const listFiles = async (folderPath?: string): Promise<any[]> => {
     if (!sharePointService) {
       throw new Error('Servicio de SharePoint no disponible');
     }
-    
     return await sharePointService.listFiles(folderPath);
   };
 
-  // Crear carpeta
   const createFolder = async (folderPath?: string): Promise<void> => {
     if (!sharePointService) {
       throw new Error('Servicio de SharePoint no disponible');
     }
-    
     return await sharePointService.createFolderIfNotExists(folderPath);
   };
 
   return {
-    isAuthenticated,
-    user,
     accessToken,
+    account,
+    error,
     isLoading,
     sharePointService,
     login,
