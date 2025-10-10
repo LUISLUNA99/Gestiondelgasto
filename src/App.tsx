@@ -17,6 +17,8 @@ function App() {
     logout: msLogout,
     uploadFile: msUploadFile,
     uploadMultipleFiles: msUploadMultipleFiles,
+    createFolder: msCreateFolder,
+    sharePointService: msSharePointService,
     isLoading: msLoading
   } = useMicrosoftGraph()
   
@@ -411,7 +413,7 @@ function App() {
 
         {/* Contenido de la página */}
         <main>
-          {currentPage === 'gastos' && <GastosPage user={user} userDisplayName={displayName} isMsAuthenticated={isMsAuthenticated} msUploadMultipleFiles={msUploadMultipleFiles} handleLogout={handleLogout} setCurrentPage={setCurrentPage} />}
+          {currentPage === 'gastos' && <GastosPage user={user} userDisplayName={displayName} isMsAuthenticated={isMsAuthenticated} msUploadMultipleFiles={msUploadMultipleFiles} msCreateFolder={msCreateFolder} msLogin={msLogin} handleLogout={handleLogout} setCurrentPage={setCurrentPage} />}
           {currentPage === 'solicitudes' && <SolicitudesPage />}
         </main>
       </div>
@@ -420,7 +422,7 @@ function App() {
 }
 
 // Componente de Gastos con base de datos
-function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultipleFiles, handleLogout, setCurrentPage }: { user: any, userDisplayName: string, isMsAuthenticated: boolean, msUploadMultipleFiles: (files: File[], subfolder?: string, solicitudId?: string) => Promise<any[]>, handleLogout: () => Promise<void>, setCurrentPage: (page: 'gastos' | 'solicitudes') => void }) {
+function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultipleFiles, msCreateFolder, msLogin, handleLogout, setCurrentPage }: { user: any, userDisplayName: string, isMsAuthenticated: boolean, msUploadMultipleFiles: (files: File[], subfolder?: string, solicitudId?: string) => Promise<any[]>, msCreateFolder: (folderPath: string) => Promise<void>, msLogin: () => Promise<void>, handleLogout: () => Promise<void>, setCurrentPage: (page: 'gastos' | 'solicitudes') => void }) {
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -431,6 +433,15 @@ function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultiple
   const [empresasGeneradoras, setEmpresasGeneradoras] = useState<any[]>([])
   const [proveedores, setProveedores] = useState<any[]>([])
   const [cuentasContables, setCuentasContables] = useState<any[]>([])
+  
+  // Estados para el gestor de SharePoint
+  const [showSharePointManager, setShowSharePointManager] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState(false)
+  const [managerFiles, setManagerFiles] = useState<File[]>([])
+  const [currentPath, setCurrentPath] = useState('/GestionGasto/Archivos')
+  
   const [nuevaSolicitud, setNuevaSolicitud] = useState({
     solicitante: user?.email || '',
     centro_costo: 'CSI001', // Centro de costo por defecto
@@ -1026,7 +1037,7 @@ function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultiple
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <button
-                onClick={() => setCurrentPage('solicitudes')}
+                onClick={() => setShowSharePointManager(true)}
                 style={{
                   backgroundColor: '#7c3aed',
                   color: 'white',
@@ -3038,6 +3049,151 @@ function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultiple
                 Adjuntar Factura
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Gestor de SharePoint */}
+      {showSharePointManager && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:70 }}>
+          <div style={{ background:'#fff', borderRadius:'12px', padding:'24px', width:'95%', maxWidth:'800px', maxHeight:'90vh', overflow:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+              <h3 style={{ fontSize:'20px', fontWeight:600, color:'#111827' }}>📁 Gestor de SharePoint</h3>
+              <button onClick={()=> setShowSharePointManager(false)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'18px', color:'#6b7280' }}>✕</button>
+            </div>
+
+            {!isMsAuthenticated ? (
+              <div style={{ textAlign:'center', padding:'40px' }}>
+                <p style={{ color:'#6b7280', marginBottom:'16px' }}>Inicia sesión con Microsoft para gestionar archivos en SharePoint.</p>
+                <button onClick={msLogin} style={{ background:'#2563eb', color:'#fff', padding:'12px 24px', border:'none', borderRadius:8, cursor:'pointer' }}>Iniciar sesión Microsoft</button>
+              </div>
+            ) : (
+              <>
+                {/* Ruta actual */}
+                <div style={{ padding:'12px', background:'#f3f4f6', borderRadius:8, marginBottom:20, fontSize:14, color:'#374151' }}>
+                  <strong>Ruta actual:</strong> {currentPath}
+                </div>
+
+                {/* Sección: Crear carpeta */}
+                <div style={{ marginBottom:24, padding:20, background:'#eff6ff', borderRadius:8, border:'1px solid #dbeafe' }}>
+                  <h4 style={{ fontSize:16, fontWeight:600, marginBottom:12, color:'#1e40af' }}>Crear Nueva Carpeta</h4>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input
+                      type="text"
+                      placeholder="Nombre de la carpeta (ej: Facturas, Documentos)"
+                      value={newFolderName}
+                      onChange={(e)=> setNewFolderName(e.target.value)}
+                      style={{ flex:1, padding:'10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:14 }}
+                    />
+                    <button
+                      disabled={!newFolderName.trim() || creatingFolder}
+                      onClick={async ()=>{
+                        if (!msCreateFolder || !newFolderName.trim()) return
+                        try {
+                          setCreatingFolder(true)
+                          const fullPath = `${currentPath}/${newFolderName.trim()}`
+                          await msCreateFolder(fullPath)
+                          alert(`✅ Carpeta "${newFolderName}" creada exitosamente en:\n${fullPath}`)
+                          setNewFolderName('')
+                        } catch (e) {
+                          alert('❌ Error al crear carpeta')
+                          console.error(e)
+                        } finally {
+                          setCreatingFolder(false)
+                        }
+                      }}
+                      style={{
+                        background: newFolderName.trim() ? '#2563eb' : '#cbd5e1',
+                        color:'#fff',
+                        padding:'10px 20px',
+                        border:'none',
+                        borderRadius:6,
+                        cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+                        fontWeight:600
+                      }}
+                    >
+                      {creatingFolder ? 'Creando...' : '➕ Crear'}
+                    </button>
+                  </div>
+                  <p style={{ fontSize:12, color:'#6b7280', marginTop:8 }}>
+                    💡 Tip: También puedes crear subcarpetas usando "/" (ej: Facturas/2025/10)
+                  </p>
+                </div>
+
+                {/* Sección: Subir archivos */}
+                <div style={{ padding:20, background:'#f0fdf4', borderRadius:8, border:'1px solid #bbf7d0' }}>
+                  <h4 style={{ fontSize:16, fontWeight:600, marginBottom:12, color:'#166534' }}>Subir Archivos</h4>
+                  <div style={{ marginBottom:12 }}>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={(e)=> setManagerFiles(Array.from(e.target.files||[]))}
+                      style={{ fontSize:14 }}
+                    />
+                  </div>
+                  {managerFiles.length > 0 && (
+                    <div style={{ marginBottom:12, padding:12, background:'#fff', borderRadius:6, border:'1px solid #d1d5db' }}>
+                      <p style={{ fontSize:14, fontWeight:600, marginBottom:8 }}>Archivos seleccionados:</p>
+                      <ul style={{ fontSize:12, color:'#374151', paddingLeft:20 }}>
+                        {managerFiles.map((f,i)=> <li key={i}>{f.name} ({(f.size/1024).toFixed(1)} KB)</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button
+                      disabled={managerFiles.length===0 || uploadingFiles}
+                      onClick={async ()=>{
+                        if (!msUploadMultipleFiles || managerFiles.length===0) return
+                        try {
+                          setUploadingFiles(true)
+                          const results = await msUploadMultipleFiles(managerFiles, currentPath)
+                          alert(`✅ ${results.length} archivo(s) subido(s) exitosamente a:\n${currentPath}`)
+                          setManagerFiles([])
+                        } catch (e) {
+                          alert('❌ Error al subir archivos')
+                          console.error(e)
+                        } finally {
+                          setUploadingFiles(false)
+                        }
+                      }}
+                      style={{
+                        flex:1,
+                        background: managerFiles.length > 0 ? '#059669' : '#cbd5e1',
+                        color:'#fff',
+                        padding:'12px 20px',
+                        border:'none',
+                        borderRadius:6,
+                        cursor: managerFiles.length > 0 ? 'pointer' : 'not-allowed',
+                        fontWeight:600
+                      }}
+                    >
+                      {uploadingFiles ? '⏳ Subiendo...' : `📤 Subir ${managerFiles.length > 0 ? `(${managerFiles.length})` : ''}`}
+                    </button>
+                    {managerFiles.length > 0 && (
+                      <button
+                        onClick={()=> setManagerFiles([])}
+                        style={{ background:'#ef4444', color:'#fff', padding:'12px 20px', border:'none', borderRadius:6, cursor:'pointer' }}
+                      >
+                        🗑️ Limpiar
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Información adicional */}
+                <div style={{ marginTop:20, padding:16, background:'#fef3c7', borderRadius:8, border:'1px solid #fcd34d' }}>
+                  <p style={{ fontSize:13, color:'#92400e', marginBottom:8 }}>
+                    <strong>📋 Instrucciones:</strong>
+                  </p>
+                  <ul style={{ fontSize:12, color:'#92400e', paddingLeft:20, margin:0 }}>
+                    <li>Crea carpetas para organizar tus documentos</li>
+                    <li>Sube múltiples archivos a la vez</li>
+                    <li>Los archivos se guardarán en: <strong>{currentPath}</strong></li>
+                    <li>Puedes cambiar la ruta editando el campo "Ruta actual"</li>
+                  </ul>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
