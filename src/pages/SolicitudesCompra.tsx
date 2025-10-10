@@ -1,8 +1,20 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Plus, FileText } from 'lucide-react'
+import { useMicrosoftGraph } from '../hooks/useMicrosoftGraph'
+import { sharePointConfig } from '../lib/msalConfig'
 
 const SolicitudesCompra: React.FC = () => {
   const [showForm, setShowForm] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
+  const [saving, setSaving] = useState(false)
+  const [uploaded, setUploaded] = useState<any[]>([])
+  const { sharePointService, uploadMultipleFiles, isAuthenticated, login } = useMicrosoftGraph()
+
+  useEffect(() => {
+    // si venimos con ?new=1 abrir modal
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('new') === '1') setShowForm(true)
+  }, [])
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -143,26 +155,68 @@ const SolicitudesCompra: React.FC = () => {
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <FileText style={{ height: '64px', width: '64px', color: '#9ca3af', margin: '0 auto 16px' }} />
               <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#111827', marginBottom: '8px' }}>
-                Formulario de Solicitud
+                Adjuntar archivos (SharePoint)
               </h3>
-              <p style={{ color: '#6b7280', marginBottom: '24px' }}>
-                Para usar el formulario completo, primero necesitas ejecutar el esquema SQL en Supabase.
-              </p>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '500'
-                }}
-              >
-                Cerrar
-              </button>
+              {!isAuthenticated && (
+                <>
+                  <p style={{ color: '#6b7280', marginBottom: '16px' }}>
+                    Inicia sesión con Microsoft para subir documentos a SharePoint.
+                  </p>
+                  <button onClick={login} style={{ background:'#2563eb', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer', marginBottom:16 }}>Iniciar sesión Microsoft</button>
+                </>
+              )}
+              <div style={{ marginBottom: '16px' }}>
+                <input type="file" multiple onChange={(e)=> setFiles(Array.from(e.target.files||[]))} />
+              </div>
+              <div style={{ display:'flex', gap:8, justifyContent:'center', marginBottom:16 }}>
+                <button
+                  disabled={!sharePointService || files.length===0 || saving}
+                  onClick={async ()=>{
+                    if (!sharePointService || files.length===0) return
+                    try {
+                      setSaving(true)
+                      const folder = `${sharePointConfig.folderPath}/Pruebas`
+                      const res = await uploadMultipleFiles(files, folder)
+                      setUploaded(res)
+                    } catch (e) {
+                      alert('No se pudieron subir archivos')
+                      console.error(e)
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                  style={{ backgroundColor: '#2563eb', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer' }}
+                >{saving ? 'Subiendo...' : 'Subir a SharePoint'}</button>
+                <button onClick={()=> setShowForm(false)} style={{ background:'#6b7280', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer' }}>Cerrar</button>
+              </div>
+
+              {/* Previsualización de archivos subidos */}
+              {uploaded.length>0 && (
+                <div style={{ textAlign:'left' }}>
+                  <h4 style={{ fontSize:14, fontWeight:600, color:'#111827', margin:'8px 0' }}>Archivos subidos</h4>
+                  <div style={{ display:'grid', gap:8 }}>
+                    {uploaded.map((f:any,i:number)=>{
+                      const isImg = !!f?.isImage || (typeof f?.mimeType==='string' && f.mimeType.startsWith('image/'))
+                      return (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:12, border:'1px solid #e5e7eb', borderRadius:8, padding:8 }}>
+                          <div style={{ width:56, height:56, borderRadius:6, overflow:'hidden', background:'#fff', border:'1px solid #e5e7eb', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            {isImg ? (
+                              <img src={f.thumbnailUrl || f.downloadUrl || f.webUrl} alt={f.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                            ) : (
+                              <span>📄</span>
+                            )}
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:14, fontWeight:500 }}>{f.name}</div>
+                            <div style={{ fontSize:12, color:'#6b7280' }}>{(Number(f.size||0)/1024).toFixed(1)} KB</div>
+                          </div>
+                          {f.webUrl && <a href={f.webUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:'#2563eb' }}>Abrir</a>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,9 @@ export interface SharePointFile {
   downloadUrl: string;
   size: number;
   createdDateTime: string;
+  mimeType?: string;
+  isImage?: boolean;
+  thumbnailUrl?: string;
 }
 
 // Servicio de SharePoint
@@ -121,6 +124,18 @@ export class SharePointService {
       const file = await this.graphClient
         .api(`/sites/${this.siteId}/drive/items/${fileId}`)
         .get();
+
+      // Intentar obtener una miniatura si existe
+      let thumbnailUrl: string | undefined
+      try {
+        const thumbs = await this.graphClient
+          .api(`/sites/${this.siteId}/drive/items/${fileId}/thumbnails`)
+          .get()
+        const t = (thumbs?.value?.[0]) || {}
+        thumbnailUrl = t?.medium?.url || t?.small?.url || t?.large?.url
+      } catch (_) {
+        // ignorar errores de miniaturas
+      }
       
       return {
         id: file.id,
@@ -129,6 +144,9 @@ export class SharePointService {
         downloadUrl: file['@microsoft.graph.downloadUrl'],
         size: file.size,
         createdDateTime: file.createdDateTime,
+        mimeType: file?.file?.mimeType,
+        isImage: typeof file?.file?.mimeType === 'string' ? file.file.mimeType.startsWith('image/') : undefined,
+        thumbnailUrl,
       };
     } catch (error) {
       console.error('❌ Error al obtener archivo:', error);
@@ -157,6 +175,7 @@ export class SharePointService {
     try {
       const response = await this.graphClient
         .api(`/sites/${this.siteId}/drive/root:/${folderPath}:/children`)
+        .query({ $expand: 'thumbnails' })
         .get();
       
       return response.value.map((file: any) => ({
@@ -166,6 +185,9 @@ export class SharePointService {
         downloadUrl: file['@microsoft.graph.downloadUrl'],
         size: file.size,
         createdDateTime: file.createdDateTime,
+        mimeType: file?.file?.mimeType,
+        isImage: typeof file?.file?.mimeType === 'string' ? file.file.mimeType.startsWith('image/') : undefined,
+        thumbnailUrl: (file?.thumbnails?.[0]?.medium?.url) || (file?.thumbnails?.[0]?.small?.url) || (file?.thumbnails?.[0]?.large?.url),
       }));
     } catch (error) {
       console.error('❌ Error al listar archivos:', error);

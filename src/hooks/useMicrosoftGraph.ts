@@ -30,6 +30,7 @@ export const useMicrosoftGraph = () => {
   const [error, setError] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sharePointService, setSharePointService] = useState<SharePointService | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
     const msalInstance = getMsal();
@@ -68,6 +69,7 @@ export const useMicrosoftGraph = () => {
       // 4. Establecer la cuenta y obtener el token de acceso
       if (activeAccount) {
         setAccount(activeAccount);
+        setIsAuthenticated(true);
         try {
           const tokenResponse = await msalInstance.acquireTokenSilent({
             ...loginRequest,
@@ -79,6 +81,8 @@ export const useMicrosoftGraph = () => {
           console.warn('⚠️ Fallo acquireTokenSilent:', e);
           // Si el login es requerido, el usuario lo iniciará manualmente
         }
+      } else {
+        setIsAuthenticated(false);
       }
 
       setIsLoading(false);
@@ -106,6 +110,7 @@ export const useMicrosoftGraph = () => {
   // Login
   const login = async () => {
     const msalInstance = getMsal();
+    setIsLoading(true);
     await msalInstance.loginRedirect(loginRequest);
   };
 
@@ -113,6 +118,9 @@ export const useMicrosoftGraph = () => {
   const logout = async (): Promise<void> => {
     msalInstance = getMsal();
     await msalInstance.logoutRedirect();
+    setAccount(null);
+    setAccessToken(null);
+    setIsAuthenticated(false);
   };
 
   // Subir un solo archivo (ejemplo)
@@ -157,6 +165,8 @@ export const useMicrosoftGraph = () => {
     account,
     error,
     isLoading,
+    isAuthenticated,
+    user: account,
     sharePointService,
     login,
     logout,
