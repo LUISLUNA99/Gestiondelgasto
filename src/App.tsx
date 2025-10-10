@@ -411,7 +411,7 @@ function App() {
 
         {/* Contenido de la página */}
         <main>
-          {currentPage === 'gastos' && <GastosPage user={user} userDisplayName={displayName} isMsAuthenticated={isMsAuthenticated} msUploadMultipleFiles={msUploadMultipleFiles} handleLogout={handleLogout} />}
+          {currentPage === 'gastos' && <GastosPage user={user} userDisplayName={displayName} isMsAuthenticated={isMsAuthenticated} msUploadMultipleFiles={msUploadMultipleFiles} handleLogout={handleLogout} setCurrentPage={setCurrentPage} />}
           {currentPage === 'solicitudes' && <SolicitudesPage />}
         </main>
       </div>
@@ -420,7 +420,7 @@ function App() {
 }
 
 // Componente de Gastos con base de datos
-function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultipleFiles, handleLogout }: { user: any, userDisplayName: string, isMsAuthenticated: boolean, msUploadMultipleFiles: (files: File[], subfolder?: string, solicitudId?: string) => Promise<any[]>, handleLogout: () => Promise<void> }) {
+function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultipleFiles, handleLogout, setCurrentPage }: { user: any, userDisplayName: string, isMsAuthenticated: boolean, msUploadMultipleFiles: (files: File[], subfolder?: string, solicitudId?: string) => Promise<any[]>, handleLogout: () => Promise<void>, setCurrentPage: (page: 'gastos' | 'solicitudes') => void }) {
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -1025,6 +1025,21 @@ function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultiple
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={() => setCurrentPage('solicitudes')}
+                style={{
+                  backgroundColor: '#059669',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                🧪 Debug SharePoint
+              </button>
               <div style={{
                 padding: '4px 8px',
                 borderRadius: '9999px',

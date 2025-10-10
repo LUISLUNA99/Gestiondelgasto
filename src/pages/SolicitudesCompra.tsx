@@ -71,6 +71,20 @@ const SolicitudesCompra: React.FC = () => {
             </div>
             <div style={{ display:'flex', gap:8 }}>
               <button
+                onClick={() => setShowForm(true)}
+                style={{
+                  backgroundColor: '#059669',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                🧪 Debug Upload
+              </button>
+              <button
                 onClick={async ()=>{
                   setReviewOpen(true)
                   if (!sharePointService) return
@@ -246,20 +260,51 @@ const SolicitudesCompra: React.FC = () => {
                     if (!sharePointService || files.length===0) return
                     try {
                       setSaving(true)
-                      const id = currentSolicitudId || prompt('ID de solicitud (UUID) para guardar:', '') || ''
-                      setCurrentSolicitudId(id)
-                      const folder = `${sharePointConfig.folderPath}/${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/Solicitud-${id || 'Pruebas'}`
-                      const res = await uploadMultipleFiles(files, folder)
+                      // Generar UUID automático para debug
+                      const debugId = crypto.randomUUID()
+                      setCurrentSolicitudId(debugId)
+                      console.log('🧪 DEBUG: Usando UUID automático:', debugId)
+                      // Subir usando baseFolder y que el servicio construya {YYYY}/{MM}/{id}
+                      const baseFolder = sharePointConfig.folderPath
+                      console.log('🧪 DEBUG: Base folder:', baseFolder)
+                      const res = await uploadMultipleFiles(files, baseFolder, debugId)
                       setUploaded(res)
+                      alert(`✅ Debug: Archivos subidos exitosamente con UUID: ${debugId}`)
                     } catch (e) {
-                      alert('No se pudieron subir archivos')
+                      alert('❌ No se pudieron subir archivos')
                       console.error(e)
                     } finally {
                       setSaving(false)
                     }
                   }}
-                  style={{ backgroundColor: '#2563eb', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer' }}
-                >{saving ? 'Subiendo...' : 'Subir a SharePoint'}</button>
+                  style={{ backgroundColor: '#059669', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer' }}
+                >{saving ? 'Subiendo...' : '🧪 Debug: Subir Archivos'}</button>
+                
+                <button
+                  disabled={!sharePointService || reviewLoading}
+                  onClick={async ()=>{
+                    if (!sharePointService) return
+                    try {
+                      setReviewLoading(true)
+                      const testId = prompt('UUID de solicitud para probar listado:', currentSolicitudId || '') || ''
+                      if (testId) {
+                        console.log('🧪 DEBUG: Listando archivos para UUID:', testId)
+                        const files = await sharePointService.listFilesForSolicitud(testId)
+                        console.log('🧪 DEBUG: Archivos encontrados:', files)
+                        setReviewFiles(files)
+                        setReviewOpen(true)
+                        alert(`✅ Debug: Encontrados ${files.length} archivos para UUID: ${testId}`)
+                      }
+                    } catch (e) {
+                      alert('❌ Error al listar archivos')
+                      console.error(e)
+                    } finally {
+                      setReviewLoading(false)
+                    }
+                  }}
+                  style={{ backgroundColor: '#3b82f6', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer' }}
+                >{reviewLoading ? 'Listando...' : '🧪 Debug: Listar Archivos'}</button>
+                
                 <button onClick={()=> setShowForm(false)} style={{ background:'#6b7280', color:'#fff', padding:'10px 16px', border:'none', borderRadius:8, cursor:'pointer' }}>Cerrar</button>
               </div>
 
