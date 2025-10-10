@@ -3,6 +3,12 @@ import { Plus, FileText } from 'lucide-react'
 import { useMicrosoftGraph } from '../hooks/useMicrosoftGraph'
 import { sharePointConfig } from '../lib/msalConfig'
 
+declare global {
+  interface Window {
+    openSolicitudAdjuntos?: (solicitudId: string) => void
+  }
+}
+
 const SolicitudesCompra: React.FC = () => {
   const [showForm, setShowForm] = useState(false)
   const [files, setFiles] = useState<File[]>([])
@@ -18,7 +24,38 @@ const SolicitudesCompra: React.FC = () => {
     // si venimos con ?new=1 abrir modal
     const params = new URLSearchParams(window.location.search)
     if (params.get('new') === '1') setShowForm(true)
+    // si viene ?solicitudId=... abrir revisión de esa solicitud
+    const paramId = params.get('solicitudId') || ''
+    if (paramId) {
+      setCurrentSolicitudId(paramId)
+      setReviewOpen(true)
+    }
+    // exponer helper global para abrir desde otros componentes
+    window.openSolicitudAdjuntos = (id: string) => {
+      setCurrentSolicitudId(id)
+      setReviewOpen(true)
+    }
+    return () => {
+      delete window.openSolicitudAdjuntos
+    }
   }, [])
+
+  // Cargar adjuntos automáticamente cuando haya id y el modal esté abierto
+  useEffect(() => {
+    const fetchFiles = async () => {
+      if (!sharePointService || !reviewOpen || !currentSolicitudId) return
+      try {
+        setReviewLoading(true)
+        const res = await sharePointService.listFilesForSolicitud(currentSolicitudId, sharePointConfig.folderPath)
+        setReviewFiles(res)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setReviewLoading(false)
+      }
+    }
+    fetchFiles()
+  }, [sharePointService, reviewOpen, currentSolicitudId])
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
