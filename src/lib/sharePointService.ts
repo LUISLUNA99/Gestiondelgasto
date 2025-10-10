@@ -76,12 +76,20 @@ export class SharePointService {
   async uploadFile(file: File, folderPath: string = sharePointConfig.folderPath, solicitudId?: string): Promise<SharePointFile> {
     if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
     try {
-      console.log('📤 Subiendo archivo a SharePoint:', file.name);
-      console.log('DEBUG: solicitudId provided:', solicitudId);
+      console.log('📤 ========== INICIO SUBIDA DE ARCHIVO ==========');
+      console.log('📄 Archivo:', file.name);
+      console.log('📏 Tamaño:', file.size, 'bytes');
+      console.log('📁 folderPath recibido:', folderPath);
+      console.log('🔑 solicitudId recibido:', solicitudId);
+      console.log('🏢 Site ID:', this.siteId);
+      
       // Crear estructura año/mes/solicitud
       const nested = this.buildNestedPath(folderPath, solicitudId)
-      console.log('DEBUG: Nested folder path for creation:', nested);
+      console.log('📂 Nested folder path calculado:', nested);
+      console.log('🔨 Intentando crear carpeta...');
       await this.createFolderIfNotExists(nested)
+      console.log('✅ Carpeta creada/verificada');
+
 
       // Crear el nombre único del archivo (más simple)
       const timestamp = Date.now().toString().slice(-8); // Solo últimos 8 dígitos
@@ -93,23 +101,31 @@ export class SharePointService {
       const fileName = `${timestamp}-${cleanName}`;
       const filePath = `${nested}/${fileName}`;
       
-      console.log('DEBUG: Archivo original:', originalName);
-      console.log('DEBUG: Nombre limpio:', cleanName);
-      console.log('DEBUG: Nombre final:', fileName);
-      console.log('DEBUG: Full file path (before encoding):', filePath);
+      console.log('🔤 Archivo original:', originalName);
+      console.log('🧹 Nombre limpio:', cleanName);
+      console.log('✨ Nombre final:', fileName);
+      console.log('🗂️ Full file path (antes de encoding):', filePath);
       
       // Convertir archivo a ArrayBuffer
+      console.log('🔄 Convirtiendo archivo a ArrayBuffer...');
       const arrayBuffer = await file.arrayBuffer();
+      console.log('✅ ArrayBuffer creado, tamaño:', arrayBuffer.byteLength, 'bytes');
       
       // Subir archivo usando Microsoft Graph
       const encodedFilePath = this.encodePath(filePath)
-      console.log('DEBUG: About to PUT to encoded path:', encodedFilePath);
+      console.log('🔐 Ruta codificada:', encodedFilePath);
+      console.log('📡 API endpoint:', `/sites/${this.siteId}/drive/root:/${encodedFilePath}:/content`);
+      console.log('🚀 Iniciando PUT request a Microsoft Graph...');
       
       const uploadResult = await this.graphClient
         .api(`/sites/${this.siteId}/drive/root:/${encodedFilePath}:/content`)
         .put(arrayBuffer);
       
-      console.log('✅ Archivo subido exitosamente:', uploadResult.name);
+      console.log('🎉 Archivo subido exitosamente!');
+      console.log('📋 Respuesta de SharePoint:', uploadResult);
+      console.log('✅ Nombre del archivo en SharePoint:', uploadResult.name);
+      console.log('🔗 URL del archivo:', uploadResult.webUrl);
+      console.log('📤 ========== FIN SUBIDA DE ARCHIVO ==========');
       
       return {
         id: uploadResult.id,
@@ -275,22 +291,33 @@ export class SharePointService {
   // Crear carpeta si no existe (recursivamente)
   async createFolderIfNotExists(folderPath: string = sharePointConfig.folderPath): Promise<void> {
     if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
+    
+    console.log('📁 ========== CREAR/VERIFICAR CARPETA ==========');
+    console.log('📂 Ruta de carpeta solicitada:', folderPath);
       
     try {
       // Intentar obtener la carpeta
       const encoded = this.encodePath(folderPath)
+      console.log('🔐 Ruta codificada:', encoded);
+      console.log('🔍 Verificando si existe...');
+      
       await this.graphClient
         .api(`/sites/${this.siteId}/drive/root:/${encoded}`)
         .get();
       
       console.log('✅ La carpeta ya existe:', folderPath);
+      console.log('📁 ========== FIN VERIFICACIÓN ==========');
     } catch (error) {
+      console.log('⚠️ Carpeta no existe, creando estructura completa...');
       // Si no existe, crear recursivamente
       const pathParts = folderPath.split('/').filter(part => part.length > 0);
+      console.log('🔨 Partes de la ruta:', pathParts);
       let currentPath = '';
       
       for (let i = 0; i < pathParts.length; i++) {
         currentPath = currentPath ? `${currentPath}/${pathParts[i]}` : pathParts[i];
+        console.log(`\n🔄 Procesando parte ${i+1}/${pathParts.length}: "${pathParts[i]}"`);
+        console.log('📍 Ruta acumulada:', currentPath);
         
         try {
           // Verificar si la carpeta actual existe
@@ -299,16 +326,21 @@ export class SharePointService {
             .api(`/sites/${this.siteId}/drive/root:/${encCur}`)
             .get();
           
-          console.log('✅ La carpeta ya existe:', currentPath);
+          console.log('✅ Ya existe:', currentPath);
         } catch (folderError) {
           // Crear la carpeta actual
+          console.log('⚠️ No existe, creando...');
           try {
             const parentPath = i === 0 ? '' : pathParts.slice(0, i).join('/');
             const apiPath = parentPath 
               ? `/sites/${this.siteId}/drive/root:/${this.encodePath(parentPath)}:/children`
               : `/sites/${this.siteId}/drive/root/children`;
             
-            await this.graphClient
+            console.log('👉 Parent path:', parentPath || '[raíz]');
+            console.log('🔗 API path:', apiPath);
+            console.log('📝 Creando carpeta con nombre:', pathParts[i]);
+            
+            const result = await this.graphClient
               .api(apiPath)
               .post({
                 name: pathParts[i],
@@ -316,13 +348,17 @@ export class SharePointService {
                 '@microsoft.graph.conflictBehavior': 'rename'
               });
             
+            console.log('🎉 Carpeta creada:', result.name);
             console.log('✅ Carpeta creada exitosamente:', currentPath);
-          } catch (createError) {
-            console.error('❌ Error al crear carpeta:', currentPath, createError);
+          } catch (createError: any) {
+            console.error('❌ Error al crear carpeta:', currentPath);
+            console.error('❌ Detalles del error:', createError);
+            console.error('❌ Mensaje:', createError?.message);
             throw new Error(`Error al crear carpeta ${currentPath}: ${createError}`);
           }
         }
       }
+      console.log('📁 ========== FIN CREACIÓN DE ESTRUCTURA ==========');
     }
   }
 }

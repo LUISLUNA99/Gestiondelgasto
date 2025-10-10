@@ -3146,12 +3146,21 @@ function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultiple
                         if (!msUploadMultipleFiles || managerFiles.length===0) return
                         try {
                           setUploadingFiles(true)
+                          console.log('🔄 Iniciando subida de archivos...')
+                          console.log('📁 Ruta destino:', currentPath)
+                          console.log('📄 Archivos a subir:', managerFiles.map(f => f.name))
+                          console.log('📊 Función disponible:', typeof msUploadMultipleFiles)
+                          
                           const results = await msUploadMultipleFiles(managerFiles, currentPath)
+                          
+                          console.log('✅ Resultados de subida:', results)
                           alert(`✅ ${results.length} archivo(s) subido(s) exitosamente a:\n${currentPath}`)
                           setManagerFiles([])
-                        } catch (e) {
-                          alert('❌ Error al subir archivos')
-                          console.error(e)
+                        } catch (e: any) {
+                          console.error('❌ Error completo:', e)
+                          console.error('❌ Error mensaje:', e?.message)
+                          console.error('❌ Error stack:', e?.stack)
+                          alert(`❌ Error al subir archivos: ${e?.message || 'Error desconocido'}`)
                         } finally {
                           setUploadingFiles(false)
                         }
