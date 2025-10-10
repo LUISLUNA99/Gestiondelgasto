@@ -135,9 +135,17 @@ export class SharePointService {
         size: uploadResult.size,
         createdDateTime: uploadResult.createdDateTime,
       };
-    } catch (error) {
-      console.error('❌ Error al subir archivo a SharePoint:', error);
-      throw new Error(`Error al subir archivo: ${error}`);
+    } catch (error: any) {
+      console.error('❌❌❌ ERROR CRÍTICO AL SUBIR ARCHIVO ❌❌❌');
+      console.error('Tipo de error:', typeof error);
+      console.error('Error completo:', error);
+      console.error('Error.message:', error?.message);
+      console.error('Error.stack:', error?.stack);
+      console.error('Error.toString():', error?.toString?.());
+      
+      // Extraer mensaje de error útil
+      const errorMessage = error?.message || error?.error?.message || error?.toString?.() || 'Error desconocido';
+      throw new Error(`Error al subir archivo: ${errorMessage}`);
     }
   }
 
@@ -351,10 +359,15 @@ export class SharePointService {
             console.log('🎉 Carpeta creada:', result.name);
             console.log('✅ Carpeta creada exitosamente:', currentPath);
           } catch (createError: any) {
-            console.error('❌ Error al crear carpeta:', currentPath);
-            console.error('❌ Detalles del error:', createError);
-            console.error('❌ Mensaje:', createError?.message);
-            throw new Error(`Error al crear carpeta ${currentPath}: ${createError}`);
+            console.error('❌❌❌ ERROR AL CREAR CARPETA ❌❌❌');
+            console.error('Carpeta que intentaba crear:', currentPath);
+            console.error('Tipo de error:', typeof createError);
+            console.error('Detalles del error:', createError);
+            console.error('Mensaje:', createError?.message);
+            console.error('Stack:', createError?.stack);
+            
+            const errorMsg = createError?.message || createError?.error?.message || createError?.toString?.() || 'Error desconocido';
+            throw new Error(`Error al crear carpeta ${currentPath}: ${errorMsg}`);
           }
         }
       }
