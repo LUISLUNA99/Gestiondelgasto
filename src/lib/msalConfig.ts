@@ -6,7 +6,8 @@ export const msalConfig: Configuration = {
   auth: {
     clientId: import.meta.env.VITE_REACT_APP_AZURE_CLIENT_ID || '', // Tu Client ID de Azure AD
     authority: import.meta.env.VITE_REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common',
-    redirectUri: `${window.location.origin}${window.location.pathname}`,
+    // Usar una URI de redirección fija si está definida; de lo contrario, usar solo el origin
+    redirectUri: (import.meta.env as any).VITE_REACT_APP_REDIRECT_URI || window.location.origin,
   },
   cache: {
     cacheLocation: 'sessionStorage',
