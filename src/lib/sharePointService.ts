@@ -195,6 +195,49 @@ export class SharePointService {
     }
   }
 
+  // Buscar carpeta de una solicitud sin conocer año/mes
+  async findSolicitudFolderId(solicitudId: string, baseFolder: string = sharePointConfig.folderPath): Promise<string | null> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
+    const targetName = `Solicitud-${solicitudId}`
+    try {
+      const searchResult = await this.graphClient
+        .api(`/sites/${this.siteId}/drive/root:/${baseFolder}:/search(q='${encodeURIComponent(targetName)}')`)
+        .get()
+      const folderItem = (searchResult?.value || []).find((it: any) => it?.name === targetName && !!it.folder)
+      return folderItem?.id || null
+    } catch (error) {
+      console.error('❌ Error al buscar carpeta de solicitud:', error)
+      return null
+    }
+  }
+
+  // Listar archivos por solicitud (independiente del año/mes)
+  async listFilesForSolicitud(solicitudId: string, baseFolder: string = sharePointConfig.folderPath): Promise<SharePointFile[]> {
+    if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");
+    const folderId = await this.findSolicitudFolderId(solicitudId, baseFolder)
+    if (!folderId) return []
+    try {
+      const response = await this.graphClient
+        .api(`/sites/${this.siteId}/drive/items/${folderId}/children`)
+        .query({ $expand: 'thumbnails' })
+        .get()
+      return (response?.value || []).map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        webUrl: file.webUrl,
+        downloadUrl: file['@microsoft.graph.downloadUrl'],
+        size: file.size,
+        createdDateTime: file.createdDateTime,
+        mimeType: file?.file?.mimeType,
+        isImage: typeof file?.file?.mimeType === 'string' ? file.file.mimeType.startsWith('image/') : undefined,
+        thumbnailUrl: (file?.thumbnails?.[0]?.medium?.url) || (file?.thumbnails?.[0]?.small?.url) || (file?.thumbnails?.[0]?.large?.url),
+      }))
+    } catch (error) {
+      console.error('❌ Error al listar archivos de la solicitud:', error)
+      return []
+    }
+  }
+
   // Crear carpeta si no existe (recursivamente)
   async createFolderIfNotExists(folderPath: string = sharePointConfig.folderPath): Promise<void> {
     if (!this.siteId) throw new Error("SharePoint Service no inicializado. Falta Site ID.");

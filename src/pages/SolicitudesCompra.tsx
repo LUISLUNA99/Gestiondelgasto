@@ -12,6 +12,7 @@ const SolicitudesCompra: React.FC = () => {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewLoading, setReviewLoading] = useState(false)
   const [reviewFiles, setReviewFiles] = useState<any[]>([])
+  const [currentSolicitudId, setCurrentSolicitudId] = useState<string>('')
 
   useEffect(() => {
     // si venimos con ?new=1 abrir modal
@@ -34,12 +35,14 @@ const SolicitudesCompra: React.FC = () => {
             <div style={{ display:'flex', gap:8 }}>
               <button
                 onClick={async ()=>{
-                  if (!sharePointService) { setReviewOpen(true); return }
+                  setReviewOpen(true)
+                  if (!sharePointService) return
                   try {
+                    const id = prompt('ID de solicitud (UUID) para revisar:', currentSolicitudId || '') || ''
+                    setCurrentSolicitudId(id)
+                    if (!id) return
                     setReviewLoading(true)
-                    setReviewOpen(true)
-                    const folder = `${sharePointConfig.folderPath}/Pruebas`
-                    const res = await sharePointService.listFiles(folder)
+                    const res = await sharePointService.listFilesForSolicitud(id, sharePointConfig.folderPath)
                     setReviewFiles(res)
                   } catch (e) {
                     console.error(e)
@@ -206,7 +209,9 @@ const SolicitudesCompra: React.FC = () => {
                     if (!sharePointService || files.length===0) return
                     try {
                       setSaving(true)
-                      const folder = `${sharePointConfig.folderPath}/Pruebas`
+                      const id = currentSolicitudId || prompt('ID de solicitud (UUID) para guardar:', '') || ''
+                      setCurrentSolicitudId(id)
+                      const folder = `${sharePointConfig.folderPath}/${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/Solicitud-${id || 'Pruebas'}`
                       const res = await uploadMultipleFiles(files, folder)
                       setUploaded(res)
                     } catch (e) {
