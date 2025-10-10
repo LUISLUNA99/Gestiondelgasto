@@ -98,30 +98,18 @@ export class SharePointService {
       console.log('DEBUG: Nombre final:', fileName);
       console.log('DEBUG: Full file path (before encoding):', filePath);
       
-      // Convertir archivo a ArrayBuffer usando una alternativa más compatible
-      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-      });
+      // Convertir archivo a ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
       
       // Subir archivo usando Microsoft Graph
       const encodedFilePath = this.encodePath(filePath)
       console.log('DEBUG: About to PUT to encoded path:', encodedFilePath);
       
-      let uploadResult;
-      try {
-        uploadResult = await this.graphClient
-          .api(`/sites/${this.siteId}/drive/root:/${encodedFilePath}:/content`)
-          .put(arrayBuffer);
-        
-        console.log('✅ Archivo subido exitosamente:', uploadResult.name);
-        console.log('✅ Upload result:', uploadResult);
-      } catch (uploadError) {
-        console.error('❌ Error durante el PUT:', uploadError);
-        throw uploadError;
-      }
+      const uploadResult = await this.graphClient
+        .api(`/sites/${this.siteId}/drive/root:/${encodedFilePath}:/content`)
+        .put(arrayBuffer);
+      
+      console.log('✅ Archivo subido exitosamente:', uploadResult.name);
       
       return {
         id: uploadResult.id,

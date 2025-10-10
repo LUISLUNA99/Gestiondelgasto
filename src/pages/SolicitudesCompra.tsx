@@ -14,11 +14,19 @@ const SolicitudesCompra: React.FC = () => {
   const [files, setFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
   const [uploaded, setUploaded] = useState<any[]>([])
-  const { sharePointService, uploadMultipleFiles, isAuthenticated, login } = useMicrosoftGraph()
+  const { sharePointService, uploadMultipleFiles, isAuthenticated, login, createFolder } = useMicrosoftGraph()
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewLoading, setReviewLoading] = useState(false)
   const [reviewFiles, setReviewFiles] = useState<any[]>([])
   const [currentSolicitudId, setCurrentSolicitudId] = useState<string>('')
+  
+  // Estados para el gestor de carpetas y archivos
+  const [showFileManager, setShowFileManager] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState(false)
+  const [fileManagerFiles, setFileManagerFiles] = useState<File[]>([])
+  const [currentPath, setCurrentPath] = useState(sharePointConfig.folderPath)
 
   useEffect(() => {
     // si venimos con ?new=1 abrir modal
@@ -70,6 +78,23 @@ const SolicitudesCompra: React.FC = () => {
               </h1>
             </div>
             <div style={{ display:'flex', gap:8 }}>
+              <button
+                onClick={() => setShowFileManager(true)}
+                style={{
+                  backgroundColor: '#7c3aed',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                📁 Gestor SharePoint
+              </button>
               <button
                 onClick={() => setShowForm(true)}
                 style={{
@@ -378,6 +403,151 @@ const SolicitudesCompra: React.FC = () => {
                   <div style={{ gridColumn:'1/-1', textAlign:'center', color:'#6b7280' }}>No hay archivos en la carpeta de revisión</div>
                 )}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Gestor de Carpetas y Archivos SharePoint */}
+      {showFileManager && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:70 }}>
+          <div style={{ background:'#fff', borderRadius:'12px', padding:'24px', width:'95%', maxWidth:'800px', maxHeight:'90vh', overflow:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+              <h3 style={{ fontSize:'20px', fontWeight:600, color:'#111827' }}>📁 Gestor de SharePoint</h3>
+              <button onClick={()=> setShowFileManager(false)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'18px', color:'#6b7280' }}>✕</button>
+            </div>
+
+            {!isAuthenticated ? (
+              <div style={{ textAlign:'center', padding:'40px' }}>
+                <p style={{ color:'#6b7280', marginBottom:'16px' }}>Inicia sesión con Microsoft para gestionar archivos en SharePoint.</p>
+                <button onClick={login} style={{ background:'#2563eb', color:'#fff', padding:'12px 24px', border:'none', borderRadius:8, cursor:'pointer' }}>Iniciar sesión Microsoft</button>
+              </div>
+            ) : (
+              <>
+                {/* Ruta actual */}
+                <div style={{ padding:'12px', background:'#f3f4f6', borderRadius:8, marginBottom:20, fontSize:14, color:'#374151' }}>
+                  <strong>Ruta actual:</strong> {currentPath}
+                </div>
+
+                {/* Sección: Crear carpeta */}
+                <div style={{ marginBottom:24, padding:20, background:'#eff6ff', borderRadius:8, border:'1px solid #dbeafe' }}>
+                  <h4 style={{ fontSize:16, fontWeight:600, marginBottom:12, color:'#1e40af' }}>Crear Nueva Carpeta</h4>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input
+                      type="text"
+                      placeholder="Nombre de la carpeta (ej: Facturas, Documentos)"
+                      value={newFolderName}
+                      onChange={(e)=> setNewFolderName(e.target.value)}
+                      style={{ flex:1, padding:'10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:14 }}
+                    />
+                    <button
+                      disabled={!newFolderName.trim() || creatingFolder}
+                      onClick={async ()=>{
+                        if (!sharePointService || !newFolderName.trim()) return
+                        try {
+                          setCreatingFolder(true)
+                          const fullPath = `${currentPath}/${newFolderName.trim()}`
+                          await createFolder(fullPath)
+                          alert(`✅ Carpeta "${newFolderName}" creada exitosamente en:\n${fullPath}`)
+                          setNewFolderName('')
+                        } catch (e) {
+                          alert('❌ Error al crear carpeta')
+                          console.error(e)
+                        } finally {
+                          setCreatingFolder(false)
+                        }
+                      }}
+                      style={{
+                        background: newFolderName.trim() ? '#2563eb' : '#cbd5e1',
+                        color:'#fff',
+                        padding:'10px 20px',
+                        border:'none',
+                        borderRadius:6,
+                        cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+                        fontWeight:600
+                      }}
+                    >
+                      {creatingFolder ? 'Creando...' : '➕ Crear'}
+                    </button>
+                  </div>
+                  <p style={{ fontSize:12, color:'#6b7280', marginTop:8 }}>
+                    💡 Tip: También puedes crear subcarpetas usando "/" (ej: Facturas/2025/10)
+                  </p>
+                </div>
+
+                {/* Sección: Subir archivos */}
+                <div style={{ padding:20, background:'#f0fdf4', borderRadius:8, border:'1px solid #bbf7d0' }}>
+                  <h4 style={{ fontSize:16, fontWeight:600, marginBottom:12, color:'#166534' }}>Subir Archivos</h4>
+                  <div style={{ marginBottom:12 }}>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={(e)=> setFileManagerFiles(Array.from(e.target.files||[]))}
+                      style={{ fontSize:14 }}
+                    />
+                  </div>
+                  {fileManagerFiles.length > 0 && (
+                    <div style={{ marginBottom:12, padding:12, background:'#fff', borderRadius:6, border:'1px solid #d1d5db' }}>
+                      <p style={{ fontSize:14, fontWeight:600, marginBottom:8 }}>Archivos seleccionados:</p>
+                      <ul style={{ fontSize:12, color:'#374151', paddingLeft:20 }}>
+                        {fileManagerFiles.map((f,i)=> <li key={i}>{f.name} ({(f.size/1024).toFixed(1)} KB)</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button
+                      disabled={fileManagerFiles.length===0 || uploadingFiles}
+                      onClick={async ()=>{
+                        if (!sharePointService || fileManagerFiles.length===0) return
+                        try {
+                          setUploadingFiles(true)
+                          const results = await uploadMultipleFiles(fileManagerFiles, currentPath)
+                          alert(`✅ ${results.length} archivo(s) subido(s) exitosamente a:\n${currentPath}`)
+                          setFileManagerFiles([])
+                        } catch (e) {
+                          alert('❌ Error al subir archivos')
+                          console.error(e)
+                        } finally {
+                          setUploadingFiles(false)
+                        }
+                      }}
+                      style={{
+                        flex:1,
+                        background: fileManagerFiles.length > 0 ? '#059669' : '#cbd5e1',
+                        color:'#fff',
+                        padding:'12px 20px',
+                        border:'none',
+                        borderRadius:6,
+                        cursor: fileManagerFiles.length > 0 ? 'pointer' : 'not-allowed',
+                        fontWeight:600
+                      }}
+                    >
+                      {uploadingFiles ? '⏳ Subiendo...' : `📤 Subir ${fileManagerFiles.length > 0 ? `(${fileManagerFiles.length})` : ''}`}
+                    </button>
+                    {fileManagerFiles.length > 0 && (
+                      <button
+                        onClick={()=> setFileManagerFiles([])}
+                        style={{ background:'#ef4444', color:'#fff', padding:'12px 20px', border:'none', borderRadius:6, cursor:'pointer' }}
+                      >
+                        🗑️ Limpiar
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Información adicional */}
+                <div style={{ marginTop:20, padding:16, background:'#fef3c7', borderRadius:8, border:'1px solid #fcd34d' }}>
+                  <p style={{ fontSize:13, color:'#92400e', marginBottom:8 }}>
+                    <strong>📋 Instrucciones:</strong>
+                  </p>
+                  <ul style={{ fontSize:12, color:'#92400e', paddingLeft:20, margin:0 }}>
+                    <li>Crea carpetas para organizar tus documentos</li>
+                    <li>Sube múltiples archivos a la vez</li>
+                    <li>Los archivos se guardarán en: <strong>{currentPath}</strong></li>
+                    <li>Puedes cambiar la ruta editando el campo "Ruta actual"</li>
+                  </ul>
+                </div>
+              </>
             )}
           </div>
         </div>
