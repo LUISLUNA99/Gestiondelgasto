@@ -9,6 +9,9 @@ const SolicitudesCompra: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [uploaded, setUploaded] = useState<any[]>([])
   const { sharePointService, uploadMultipleFiles, isAuthenticated, login } = useMicrosoftGraph()
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewFiles, setReviewFiles] = useState<any[]>([])
 
   useEffect(() => {
     // si venimos con ?new=1 abrir modal
@@ -28,24 +31,52 @@ const SolicitudesCompra: React.FC = () => {
                 Solicitudes de Compra
               </h1>
             </div>
-            <button
-              onClick={() => setShowForm(true)}
-              style={{
-                backgroundColor: '#2563eb',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              <Plus style={{ height: '16px', width: '16px' }} />
-              Nueva Solicitud
-            </button>
+            <div style={{ display:'flex', gap:8 }}>
+              <button
+                onClick={async ()=>{
+                  if (!sharePointService) { setReviewOpen(true); return }
+                  try {
+                    setReviewLoading(true)
+                    setReviewOpen(true)
+                    const folder = `${sharePointConfig.folderPath}/Pruebas`
+                    const res = await sharePointService.listFiles(folder)
+                    setReviewFiles(res)
+                  } catch (e) {
+                    console.error(e)
+                  } finally {
+                    setReviewLoading(false)
+                  }
+                }}
+                style={{
+                  backgroundColor: '#0f766e',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Revisión
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                style={{
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                <Plus style={{ height: '16px', width: '16px' }} />
+                Nueva Solicitud
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -218,6 +249,49 @@ const SolicitudesCompra: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Revisión */}
+      {reviewOpen && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:60 }}>
+          <div style={{ background:'#fff', borderRadius:'12px', padding:'24px', width:'95%', maxWidth:'900px', maxHeight:'90vh', overflow:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+              <h3 style={{ fontSize:'18px', fontWeight:600, color:'#111827' }}>Revisión de Archivos (SharePoint)</h3>
+              <button onClick={()=> setReviewOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#6b7280' }}>✕</button>
+            </div>
+            {!sharePointService && (
+              <div style={{ marginBottom:12, color:'#6b7280' }}>Inicia sesión con Microsoft para listar archivos.</div>
+            )}
+            {reviewLoading ? (
+              <div style={{ color:'#6b7280', fontStyle:'italic', textAlign:'center', padding:'20px' }}>Cargando archivos...</div>
+            ) : (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:12 }}>
+                {reviewFiles.map((f:any, i:number)=>{
+                  const isImg = !!f?.isImage || (typeof f?.mimeType==='string' && f.mimeType.startsWith('image/'))
+                  return (
+                    <div key={i} style={{ border:'1px solid #e5e7eb', borderRadius:8, overflow:'hidden', background:'#fff' }}>
+                      <div style={{ width:'100%', height:140, background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {isImg ? (
+                          <img src={f.thumbnailUrl || f.downloadUrl || f.webUrl} alt={f.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        ) : (
+                          <span style={{ fontSize:24 }}>📄</span>
+                        )}
+                      </div>
+                      <div style={{ padding:12 }}>
+                        <div style={{ fontSize:14, fontWeight:600, color:'#111827', marginBottom:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.name}</div>
+                        <div style={{ fontSize:12, color:'#6b7280', marginBottom:8 }}>{(Number(f.size||0)/1024).toFixed(1)} KB</div>
+                        {f.webUrl && <a href={f.webUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:'#2563eb' }}>Abrir en SharePoint</a>}
+                      </div>
+                    </div>
+                  )
+                })}
+                {reviewFiles.length===0 && (
+                  <div style={{ gridColumn:'1/-1', textAlign:'center', color:'#6b7280' }}>No hay archivos en la carpeta de revisión</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
