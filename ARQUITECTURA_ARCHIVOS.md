@@ -67,15 +67,31 @@ VITE_REACT_APP_SHAREPOINT_FOLDER_PATH=/GestionGasto/Archivos
 - `Files.ReadWrite.All`
 - `User.Read`
 
-### **3. Estructura de Carpetas en SharePoint:**
+### **3. Estructura de Carpetas en SharePoint (vigente):**
+Organización por año/mes y subcarpetas por solicitud.
+
 ```
-/Documents/
-└── GestionGasto/
-    └── Archivos/
-        ├── Facturas/
-        ├── EvidenciasPago/
-        └── Documentos/
+/Documentos/
+└── Facturas/
+    └── {YYYY}/
+        └── {MM}/
+            ├── Solicitud-{uuid}/
+            │   ├── <archivo1>.pdf
+            │   └── <archivo2>.png
+            └── ...
 ```
+
+- `{YYYY}`: año con cuatro dígitos, p. ej. `2025`
+- `{MM}`: mes con dos dígitos, p. ej. `10`
+- `Solicitud-{uuid}`: identificador único de la solicitud (UUID de BD). También podemos aceptar folio si se acordara.
+
+Ruta base configurable vía `.env`:
+
+```
+VITE_REACT_APP_SHAREPOINT_FOLDER_PATH=/Documentos/Facturas
+```
+
+El servicio construye automáticamente `/{YYYY}/{MM}/Solicitud-{id}`.
 
 ## 🚀 **PRÓXIMOS PASOS**
 

@@ -43,14 +43,15 @@
 
 ## 🗂️ Paso 4: Crear Estructura de Carpetas
 
-1. En SharePoint, crea la siguiente estructura:
-   ```
-   /GestionGasto/
-   ├── Archivos/
-   │   ├── Facturas/
-   │   ├── EvidenciasPago/
-   │   └── Documentos/
-   ```
+Organiza por año/mes y subcarpetas por solicitud. La ruta base recomendada es `Documentos/Facturas`.
+
+```
+/Documentos/Facturas/
+└── {YYYY}/
+    └── {MM}/
+        ├── Solicitud-{uuid}/
+        └── ...
+```
 
 ## ⚙️ Paso 5: Configurar Variables de Entorno
 
@@ -69,7 +70,7 @@ REACT_APP_REDIRECT_URI=http://localhost:5173
 # SharePoint Configuration
 REACT_APP_SHAREPOINT_SITE_ID=tu_site_id_de_sharepoint
 REACT_APP_SHAREPOINT_DRIVE_ID=tu_drive_id (opcional)
-REACT_APP_SHAREPOINT_FOLDER_PATH=/GestionGasto/Archivos
+REACT_APP_SHAREPOINT_FOLDER_PATH=/Documentos/Facturas
 ```
 
 ## 🚀 Paso 6: Probar la Integración
