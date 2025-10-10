@@ -1028,6 +1028,24 @@ function GastosPage({ user, userDisplayName, isMsAuthenticated, msUploadMultiple
               <button
                 onClick={() => setCurrentPage('solicitudes')}
                 style={{
+                  backgroundColor: '#7c3aed',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                📁 Gestor SharePoint
+              </button>
+              <button
+                onClick={() => setCurrentPage('solicitudes')}
+                style={{
                   backgroundColor: '#059669',
                   color: 'white',
                   padding: '8px 16px',
